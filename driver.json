@@ -1,0 +1,48 @@
+{
+  "driver_id": "uc_orangetv_driver",
+  "version": "0.0.1",
+  "min_core_api": "0.20.0",
+  "name": {
+    "en": "Orange TV"
+  },
+  "icon": "uc:integration",
+  "description": {
+    "en": "Control your Orange TV with Remote Two.",
+    "de": "Steuere Orange TV mit Remote Two.",
+    "fr": "Contrôler votre Orange TV avec Remote Two."
+  },
+  "port": 8092,
+  "developer": {
+    "name": "Unfolded Circle ApS",
+    "email": "hello@unfoldedcircle.com",
+    "url": "https://www.unfoldedcircle.com"
+  },
+  "home_page": "https://www.unfoldedcircle.com",
+  "setup_data_schema": {
+    "title": {
+      "en": "Integration setup",
+      "de": "Integrationssetup",
+      "fr": "Configuration de l'intégration"
+    },
+    "settings": [
+      {
+        "id": "info",
+        "label": {
+          "en": "Setup process",
+          "de": "Setup Fortschritt",
+          "fr": "Progrès de la configuration"
+        },
+        "field": {
+          "label": {
+            "value": {
+              "en": "The integration will discover your Orange TV on your network.",
+              "de": "Diese Integration wird Orange TV im Netzwerk finden.",
+              "fr": "Cette intégration trouvera des Orange TV dans le réseau."
+            }
+          }
+        }
+      }
+    ]
+  },
+  "release_date": "2024-03-16"
+}
