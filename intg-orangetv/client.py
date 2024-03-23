@@ -363,11 +363,15 @@ class LiveboxTvUhdClient(object):
     def get_channels(self):
         return self.channels
 
-    def turn_on(self):
+    async def async_turn_on(self):
         if not self.standby_state:
             self.press_key(key=KEYS["POWER"])
-            time.sleep(2)
+            await asyncio.sleep(2)
             self.press_key(key=KEYS["OK"])
+
+    def turn_on(self):
+        if not self.standby_state:
+            asyncio.create_task(self.async_turn_on())
 
     def turn_off(self):
         if self.standby_state:

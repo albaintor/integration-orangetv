@@ -105,11 +105,14 @@ class OrangeMediaPlayer(MediaPlayer):
         elif cmd_id == Commands.MUTE_TOGGLE:
             res = self._device.mute()
         elif cmd_id == Commands.ON:
-            res = self._device.turn_on()
+            self._device.turn_on()
+            return StatusCodes.OK
         elif cmd_id == Commands.OFF:
-            res = self._device.turn_off()
+            self._device.turn_off()
+            return StatusCodes.OK
         elif cmd_id == Commands.TOGGLE:
-            res = self._device.press_key("POWER")
+            self._device.press_key("POWER")
+            return StatusCodes.OK
         elif cmd_id == Commands.SELECT_SOURCE:
             res = self._device.set_channel_by_name(params.get("source"))
         elif cmd_id == Commands.CHANNEL_UP:
