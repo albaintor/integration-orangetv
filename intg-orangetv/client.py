@@ -30,10 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 
 class Events(IntEnum):
     """Internal driver events."""
-
-    ERROR = 0
-    UPDATE = 1
-    IP_ADDRESS_CHANGED = 2
+    CONNECTED = 0
+    ERROR = 1
+    UPDATE = 2
+    IP_ADDRESS_CHANGED = 3
+    DISCONNECTED = 4
 
 
 class States(IntEnum):
@@ -104,6 +105,9 @@ class LiveboxTvUhdClient(object):
         else:
             self._state = States.ON if self.is_on else States.OFF
 
+    def connect(self):
+        self.update()
+        self.events.emit(Events.CONNECTED, self.id)
     def update(self):
         _LOGGER.debug("Refresh Orange API data")
         _data = None

@@ -54,7 +54,7 @@ async def on_r2_connect_cmd() -> None:
     _LOG.debug("R2 connect command: connecting device(s)")
     for device in _configured_devices.values():
         # start background task
-        device.update()
+        device.connect()
 
 
 @api.listens_to(ucapi.Events.DISCONNECT)
@@ -236,7 +236,7 @@ async def on_avr_update(device_id: str, update: dict[str, Any] | None) -> None:
             MediaAttr.MEDIA_TYPE: MediaType.TVSHOW,
         }
     else:
-        _LOG.info("[%s] AVR update: %s", device_id, update)
+        _LOG.info("[%s] OrangeTV update: %s", device_id, update)
 
     attributes = None
 
@@ -280,6 +280,7 @@ def _configure_new_device(device_config: config.DeviceInstance, connect: bool = 
     else:
         device = LiveboxTvUhdClient(device_config.address, device_id=device_config.id)
 
+        device.events.on(client.Events.CONNECTED, on_device_connected)
         device.events.on(client.Events.ERROR, on_avr_connection_error)
         device.events.on(client.Events.UPDATE, on_avr_update)
         # receiver.events.on(avr.Events.IP_ADDRESS_CHANGED, handle_avr_address_change)
@@ -352,6 +353,7 @@ async def main():
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
     for device in config.devices.all():
+        _LOG.debug("UC Orange device %s %s", device.id, device.address)
         _configure_new_device(device, connect=False)
 
     # _LOOP.create_task(receiver_status_poller())

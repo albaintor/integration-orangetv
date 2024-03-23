@@ -55,9 +55,9 @@ _user_input_discovery = RequestUserInput(
             "field": {
                 "label": {
                     "value": {
-                        "en": "Leave blank to use auto-discovery. Otherwise expected format : http://<ip address>:8080",
-                        "de": "Leer lassen, um automatische Erkennung zu verwenden. Ansonsten ist das erwartete format : http://<ip address>:8080",
-                        "fr": "Laissez le champ vide pour utiliser la découverte automatique. Sinon format attendu : http://<ip address>:8080",
+                        "en": "Leave blank to use auto-discovery.",
+                        "de": "Leer lassen, um automatische Erkennung zu verwenden.",
+                        "fr": "Laissez le champ vide pour utiliser la découverte automatique.",
                     }
                 }
             },

@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import httpx
-import netifaces
+# import netifaces
 from defusedxml import DefusedXmlException
 from defusedxml.ElementTree import ParseError, fromstring
 
@@ -67,13 +67,14 @@ def ssdp_request(ssdp_st: str, ssdp_mx: float = SSDP_MX) -> bytes:
 
 def get_local_ips() -> List[str]:
     """Get IPs of local network adapters."""
-    ips = []
+    return [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None)]
+    # ips = []
     # pylint: disable=c-extension-no-member
-    for interface in netifaces.interfaces():
-        addresses = netifaces.ifaddresses(interface)
-        for address in addresses.get(netifaces.AF_INET, []):
-            ips.append(address["addr"])
-    return ips
+    # for interface in netifaces.interfaces():
+    #     addresses = netifaces.ifaddresses(interface)
+    #     for address in addresses.get(netifaces.AF_INET, []):
+    #         ips.append(address["addr"])
+    # return ips
 
 
 async def async_identify_orangetv_devices() -> List[Dict]:
@@ -131,27 +132,31 @@ async def async_send_ssdp_broadcast() -> Set[str]:
 
 async def async_send_ssdp_broadcast_ip(ip_addr: str) -> Set[str]:
     """Send SSDP broadcast messages to a single IP."""
-    # Ignore 169.254.0.0/16 addresses
-    if ip_addr.startswith("169.254."):
+
+    try:
+        # Ignore 169.254.0.0/16 addresses
+        if ip_addr.startswith("169.254."):
+            return set()
+
+        # Prepare socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.bind((ip_addr, 0))
+
+        # Get asyncio loop
+        loop = asyncio.get_event_loop()
+        transport, protocol = await loop.create_datagram_endpoint(OrangeTVSSDP, sock=sock)
+
+        # Wait for the timeout period
+        await asyncio.sleep(SSDP_MX)
+
+        # Close the connection
+        transport.close()
+
+        _LOGGER.debug("Got %s results after SSDP queries using ip %s", len(protocol.urls), ip_addr)
+
+        return protocol.urls
+    except Exception:
         return set()
-
-    # Prepare socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    sock.bind((ip_addr, 0))
-
-    # Get asyncio loop
-    loop = asyncio.get_event_loop()
-    transport, protocol = await loop.create_datagram_endpoint(OrangeTVSSDP, sock=sock)
-
-    # Wait for the timeout period
-    await asyncio.sleep(SSDP_MX)
-
-    # Close the connection
-    transport.close()
-
-    _LOGGER.debug("Got %s results after SSDP queries using ip %s", len(protocol.urls), ip_addr)
-
-    return protocol.urls
 
 
 def evaluate_scpd_xml(url: str, body: str) -> Optional[Dict]:
