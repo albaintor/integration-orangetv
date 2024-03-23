@@ -289,6 +289,30 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                     "de": "Wähle deinen Orange STB",
                     "fr": "Choisissez votre décodeur Orange",
                 },
+            },
+            {
+                "field": {"dropdown": {"value": "france", "items": [
+                    {"id": "france",
+                        "label": {
+                            "en": "France",
+                            "de": "Frankreich",
+                            "fr": "France",
+                        }
+                    },
+                     {"id": "france",
+                      "label": {
+                          "en": "Poland",
+                          "de": "Polen",
+                          "fr": "Pologne",
+                      }
+                  }
+                ]}},
+                "id": "country",
+                "label": {
+                    "en": "Choose your country",
+                    "de": "Wähle deinen Land",
+                    "fr": "Choisissez votre pays",
+                },
             }
         ],
     )
@@ -304,10 +328,11 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     :return: the setup action on how to continue: SetupComplete if a valid AVR device was chosen.
     """
     host = msg.input_values["choice"]
+    country = msg.input_values["country"]
     _LOG.debug("Chosen Orange: %s. Trying to connect and retrieve device information...", host)
     try:
         # simple connection check
-        device = LiveboxTvUhdClient(host)
+        device = LiveboxTvUhdClient(host, country=country)
         data = device.rq_livebox(OPERATION_INFORMATION)
         friendly_name = data["result"]["data"]["friendlyName"]
         identifier = data["result"]["data"]["macAddress"]
@@ -325,7 +350,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        DeviceInstance(id=unique_id, name=friendly_name, address=host)
+        DeviceInstance(id=unique_id, name=friendly_name, address=host, country=country)
     )  # triggers OrangeAVR instance creation
     config.devices.store()
 

@@ -43,6 +43,13 @@ class DeviceInstance:
     id: str
     name: str
     address: str
+    country: str
+
+    def __init__(self, id, name, address, country="france"):
+        self.id = id
+        self.name = name
+        self.address = address
+        self.country = country
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -109,6 +116,7 @@ class Devices:
             if item.id == device_instance.id:
                 item.address = device_instance.address
                 item.name = device_instance.name
+                item.country = device_instance.country
                 return self.store()
         return False
 
@@ -160,9 +168,13 @@ class Devices:
         try:
             with open(self._cfg_file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+            _LOG.warning("TOTO")
+            _LOG.warning("EXISTING DATA %s", json.dumps(data))
             for item in data:
                 try:
+                    _LOG.warning("TOTO2")
                     self._config.append(DeviceInstance(**item))
+                    _LOG.warning("TOTO 3")
                 except TypeError as ex:
                     _LOG.warning("Invalid configuration entry will be ignored: %s", ex)
             return True
