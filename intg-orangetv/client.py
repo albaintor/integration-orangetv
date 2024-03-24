@@ -30,6 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class Events(IntEnum):
     """Internal driver events."""
+
     CONNECTED = 0
     ERROR = 1
     UPDATE = 2
@@ -108,6 +109,7 @@ class LiveboxTvUhdClient(object):
     def connect(self):
         self.update()
         self.events.emit(Events.CONNECTED, self.id)
+
     def update(self):
         _LOGGER.debug("Refresh Orange API data")
         _data = None

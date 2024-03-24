@@ -291,29 +291,36 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                 },
             },
             {
-                "field": {"dropdown": {"value": "france", "items": [
-                    {"id": "france",
-                        "label": {
-                            "en": "France",
-                            "de": "Frankreich",
-                            "fr": "France",
-                        }
-                    },
-                     {"id": "france",
-                      "label": {
-                          "en": "Poland",
-                          "de": "Polen",
-                          "fr": "Pologne",
-                      }
-                  }
-                ]}},
+                "field": {
+                    "dropdown": {
+                        "value": "france",
+                        "items": [
+                            {
+                                "id": "france",
+                                "label": {
+                                    "en": "France",
+                                    "de": "Frankreich",
+                                    "fr": "France",
+                                },
+                            },
+                            {
+                                "id": "france",
+                                "label": {
+                                    "en": "Poland",
+                                    "de": "Polen",
+                                    "fr": "Pologne",
+                                },
+                            },
+                        ],
+                    }
+                },
                 "id": "country",
                 "label": {
                     "en": "Choose your country",
                     "de": "Wähle deinen Land",
                     "fr": "Choisissez votre pays",
                 },
-            }
+            },
         ],
     )
 
