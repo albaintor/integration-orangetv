@@ -110,14 +110,12 @@ class LiveboxTvUhdClient(object):
         self.update()
         self.events.emit(Events.CONNECTED, self.id)
 
-    def update(self):
-        _LOGGER.debug("Refresh Orange API data")
-        _data = None
+    def update_info(self) -> any:
         self._osd_context = None
         self._channel_id = None
         self._media_state = None
-
         _datalivebox = self.rq_livebox(OPERATION_INFORMATION)
+        _data = None
         if _datalivebox:
             self._display_con_err = False
             _data = _datalivebox["result"]["data"]
@@ -132,9 +130,11 @@ class LiveboxTvUhdClient(object):
 
             if "playedMediaId" in _data:
                 self._channel_id = _data["playedMediaId"]
-
         self.refresh_state()
 
+    def update(self):
+        _LOGGER.debug("Refresh Orange API data")
+        _data = self.update_info()
         # If a channel is displayed
         if self._channel_id and self.get_channel_from_epg_id(self._channel_id):
 

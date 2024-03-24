@@ -39,6 +39,7 @@ async def device_status_poller(interval: float = 10.0) -> None:
             continue
         try:
             for device in _configured_devices.values():
+                device.update_info()
                 if not device.is_on:
                     continue
                 # TODO #20  run in parallel, join, adjust interval duration based on execution time for next update
