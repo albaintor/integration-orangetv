@@ -1,9 +1,9 @@
-# Sony AVR integration for Remote Two
+# Orange TV STB integration for Remote Two
 
-Using [python-songpal](https://github.com/rytilahti/python-songpal)
+Using code from [Orange Home Assistant component](https://github.com/AkA57/liveboxtvuhd)
 and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
-The driver discovers Denon or Marantz AVRs on the network. A media player entity is exposed to the core.
+The driver discovers Orange TV STB on the network. A media player entity is exposed to the core.
 
 Supported attributes:
 
@@ -12,18 +12,22 @@ Supported attributes:
 - Album
 - Artist
 - Artwork
-- Source
+- Source (channel selection)
 
 Supported commands:
 
 - Turn on
 - Turn off
-- Next
-- Previous
+- Next (channel)
+- Previous (channel)
+- Fast forward
+- Rewind
 - Volume up
 - Volume down
 - Play/pause
 - Source select
+- Menu
+- Record / recordings
 
 ## Usage
 
@@ -40,7 +44,7 @@ pip3 install -r requirements.txt
 For running a separate integration driver on your network for Remote Two, the configuration in file
 [driver.json](driver.json) needs to be changed:
 
-- Set `driver_id` to a unique value, `uc_denon_driver` is already used for the embedded driver in the firmware.
+- Set `driver_id` to a unique value, `uc_orange_driver` is already used for the embedded driver in the firmware.
 - Change `name` to easily identify the driver for discovery & setup with Remote Two or the web-configurator.
 - Optionally add a `"port": 8090` field for the WebSocket server listening port.
     - Default port: `9090`
@@ -83,7 +87,7 @@ docker run --rm --name builder \
     docker.io/unfoldedcircle/r2-pyinstaller:3.11.6  \
     bash -c \
       "python -m pip install -r requirements.txt && \
-      pyinstaller --clean --onefile --name intg-sonyavr intg-sonyavr/driver.py"
+      pyinstaller --clean --onefile --name intg-orange intg-orange/driver.py"
 ```
 
 ### aarch64 Linux / Mac
@@ -97,7 +101,7 @@ docker run --rm --name builder \
     docker.io/unfoldedcircle/r2-pyinstaller:3.11.6  \
     bash -c \
       "python -m pip install -r requirements.txt && \
-      pyinstaller --clean --onefile --name intg-sonyavr intg-sonyavr/driver.py"
+      pyinstaller --clean --onefile --name intg-orange intg-orange/driver.py"
 ```
 
 ## Versioning
