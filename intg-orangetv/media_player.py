@@ -17,17 +17,9 @@ from config import DeviceInstance, create_entity_id
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
 from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, States, MediaType
 
-_LOG = logging.getLogger(__name__)
+from const import MEDIA_PLAYER_STATE_MAPPING
 
-# Mapping of a device state to a media-player entity state
-MEDIA_PLAYER_STATE_MAPPING = {
-    client.States.ON: States.ON,
-    client.States.OFF: States.OFF,
-    client.States.PAUSED: States.PAUSED,
-    client.States.PLAYING: States.PLAYING,
-    client.States.UNAVAILABLE: States.UNAVAILABLE,
-    client.States.UNKNOWN: States.UNKNOWN,
-}
+_LOG = logging.getLogger(__name__)
 
 
 class OrangeMediaPlayer(MediaPlayer):

@@ -11,12 +11,13 @@ import requests
 import time
 import calendar
 
+import ucapi.media_player
 from fuzzywuzzy import process
 from pyee import AsyncIOEventEmitter
 from ucapi.media_player import MediaType, Attributes
 
 # from .const import CHANNELS
-from const import KEYS
+from const import KEYS, States, MEDIA_PLAYER_STATE_MAPPING
 from const import (
     OPERATION_INFORMATION,
     OPERATION_CHANNEL_CHANGE,
@@ -36,17 +37,6 @@ class Events(IntEnum):
     UPDATE = 2
     IP_ADDRESS_CHANGED = 3
     DISCONNECTED = 4
-
-
-class States(IntEnum):
-    """State of a connected devoce."""
-
-    UNKNOWN = 0
-    UNAVAILABLE = 1
-    OFF = 2
-    ON = 3
-    PLAYING = 4
-    PAUSED = 5
 
 
 class LiveboxTvUhdClient(object):
@@ -110,7 +100,10 @@ class LiveboxTvUhdClient(object):
         self.update()
         self.events.emit(Events.CONNECTED, self.id)
 
-    def update_info(self) -> any:
+    def update(self):
+        _LOGGER.debug("Refresh Orange API data")
+
+        update_data = {}
         self._osd_context = None
         self._channel_id = None
         self._media_state = None
@@ -121,22 +114,42 @@ class LiveboxTvUhdClient(object):
             _data = _datalivebox["result"]["data"]
 
         if _data:
-            self._standby_state = _data["activeStandbyState"]
+            changed_state = False
+            standby_state = _data["activeStandbyState"]
+
+            if standby_state != self._standby_state:
+                self._standby_state = standby_state
+                changed_state = True
+
+            if "playedMediaState" in _data:
+                media_state = _data["playedMediaState"]
+                if media_state != self._media_state:
+                    self._media_state = media_state
+                    changed_state = True
+
             self._osd_context = _data["osdContext"]
             self._wol_support = _data["wolSupport"]
 
-            if "playedMediaState" in _data:
-                self._media_state = _data["playedMediaState"]
-
             if "playedMediaId" in _data:
                 self._channel_id = _data["playedMediaId"]
-        self.refresh_state()
+            self.refresh_state()
+            if changed_state:
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
+        else:
+            if self._standby_state != "1":
+                self._standby_state = "1"
+                self.refresh_state()
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
 
-    def update(self):
-        _LOGGER.debug("Refresh Orange API data")
-        _data = self.update_info()
+
         # If a channel is displayed
         if self._channel_id and self.get_channel_from_epg_id(self._channel_id):
+
+            current_title = self.show_title
+            current_img = self.show_img
+            current_position = self.show_position
+            current_duration = self.show_duration
+            current_channel = self.channel_name
 
             # We should update all information only if channel or show change
             if self._channel_id != self._last_channel_id or self._show_position > self._show_duration:
@@ -212,29 +225,31 @@ class LiveboxTvUhdClient(object):
 
                                         # update position if we have show information
 
-                self.events.emit(
-                    Events.UPDATE,
-                    self.id,
-                    {
-                        Attributes.SOURCE: self._channel_name,
-                        Attributes.MEDIA_IMAGE_URL: self.show_img,
-                        Attributes.MEDIA_TITLE: self.show_title,
-                        Attributes.MEDIA_POSITION: self.show_position,
-                        Attributes.MEDIA_DURATION: self.show_duration,
-                        Attributes.MEDIA_TYPE: MediaType.TVSHOW,
-                        Attributes.STATE: self.state,
-                    },
-                )
             if self._show_start_dt > 0:
                 d = datetime.datetime.utcnow()
                 self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
+
+            if current_title != self.show_title:
+                update_data[Attributes.MEDIA_TITLE] = self.show_title
+                update_data[Attributes.MEDIA_TYPE] = self.media_type
+            if current_img != self.show_img:
+                update_data[Attributes.MEDIA_IMAGE_URL] = self.show_img
+                update_data[Attributes.MEDIA_TYPE] = self.media_type
+            if current_position != self.show_position:
+                update_data[Attributes.MEDIA_POSITION] = self.show_position
+            if current_duration != self.show_duration:
+                update_data[Attributes.MEDIA_DURATION] = self.show_duration
+            if current_channel != self.channel_name:
+                update_data[Attributes.SOURCE] = self.channel_name
+
+            if update_data:
                 self.events.emit(
                     Events.UPDATE,
                     self.id,
-                    {
-                        Attributes.MEDIA_POSITION: self.show_position,
-                    },
+                    update_data
                 )
+
+
         else:
             # Unknow or no channel displayed. Should be HOMEPAGE, NETFLIX, WHATEVER...
             self._channel_id = -1

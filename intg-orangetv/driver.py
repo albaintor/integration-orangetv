@@ -39,9 +39,9 @@ async def device_status_poller(interval: float = 10.0) -> None:
             continue
         try:
             for device in _configured_devices.values():
-                device.update_info()
-                if not device.is_on:
-                    continue
+                # device.update_info()
+                # if not device.is_on:
+                #     continue
                 # TODO #20  run in parallel, join, adjust interval duration based on execution time for next update
                 device.update()
         except (KeyError, ValueError):
@@ -247,11 +247,12 @@ async def on_avr_update(device_id: str, update: dict[str, Any] | None) -> None:
         if configured_entity is None:
             return
 
-        if isinstance(configured_entity, media_player.OrangeMediaPlayer):
-            attributes = configured_entity.filter_changed_attributes(update)
+        # if isinstance(configured_entity, media_player.OrangeMediaPlayer):
+        #     attributes = configured_entity.filter_changed_attributes(update)
 
-        if attributes:
-            api.configured_entities.update_attributes(entity_id, attributes)
+        # if attributes:
+        #     api.configured_entities.update_attributes(entity_id, update)
+        api.configured_entities.update_attributes(entity_id, update)
 
 
 def _entities_from_avr(avr_id: str) -> list[str]:

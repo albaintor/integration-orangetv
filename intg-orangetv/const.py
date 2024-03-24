@@ -1,6 +1,11 @@
 from datetime import timedelta
 
 __version__ = "1.0.4"
+
+from enum import IntEnum
+
+import ucapi
+
 PROJECT_URL = "https://github.com/AkA57/liveboxtvuhd/"
 ISSUE_URL = "{}issues".format(PROJECT_URL)
 
@@ -17,6 +22,25 @@ If you have any issues with this you need to open an issue here:
     NAME, __version__, ISSUE_URL
 )
 
+class States(IntEnum):
+    """State of a connected devoce."""
+
+    UNKNOWN = 0
+    UNAVAILABLE = 1
+    OFF = 2
+    ON = 3
+    PLAYING = 4
+    PAUSED = 5
+
+# Mapping of a device state to a media-player entity state
+MEDIA_PLAYER_STATE_MAPPING: dict[States, ucapi.media_player.States] = {
+    States.ON: ucapi.media_player.States.ON,
+    States.OFF: ucapi.media_player.States.OFF,
+    States.PAUSED: ucapi.media_player.States.PAUSED,
+    States.PLAYING: ucapi.media_player.States.PLAYING,
+    States.UNAVAILABLE: ucapi.media_player.States.UNAVAILABLE,
+    States.UNKNOWN: ucapi.media_player.States.UNKNOWN,
+}
 
 SCAN_INTERVAL = timedelta(seconds=10)
 MIN_TIME_BETWEEN_SCANS = SCAN_INTERVAL
