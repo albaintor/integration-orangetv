@@ -49,6 +49,8 @@ class OrangeMediaPlayer(MediaPlayer):
             Features.MENU,
             Features.NUMPAD,
             Features.CHANNEL_SWITCHER,
+            Features.MEDIA_POSITION,
+            Features.MEDIA_DURATION
         ]
         attributes = {
             Attributes.STATE: States.UNAVAILABLE,
