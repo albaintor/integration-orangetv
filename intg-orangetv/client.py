@@ -104,6 +104,7 @@ class LiveboxTvUhdClient(object):
         _LOGGER.debug("Refresh Orange API data")
 
         update_data = {}
+        current_state = self.state
         self._osd_context = None
         self._channel_id = None
         self._media_state = None
@@ -114,18 +115,14 @@ class LiveboxTvUhdClient(object):
             _data = _datalivebox["result"]["data"]
 
         if _data:
-            changed_state = False
             standby_state = _data["activeStandbyState"]
-
             if standby_state != self._standby_state:
                 self._standby_state = standby_state
-                changed_state = True
 
             if "playedMediaState" in _data:
                 media_state = _data["playedMediaState"]
                 if media_state != self._media_state:
                     self._media_state = media_state
-                    changed_state = True
 
             self._osd_context = _data["osdContext"]
             self._wol_support = _data["wolSupport"]
@@ -133,14 +130,10 @@ class LiveboxTvUhdClient(object):
             if "playedMediaId" in _data:
                 self._channel_id = _data["playedMediaId"]
             self.refresh_state()
-            if changed_state:
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
         else:
             if self._standby_state != "1":
                 self._standby_state = "1"
                 self.refresh_state()
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
-
 
         # If a channel is displayed
         if self._channel_id and self.get_channel_from_epg_id(self._channel_id):
@@ -229,6 +222,8 @@ class LiveboxTvUhdClient(object):
                 d = datetime.datetime.utcnow()
                 self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
 
+            if current_state != self.state:
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
             if current_title != self.show_title:
                 update_data[Attributes.MEDIA_TITLE] = self.show_title
                 update_data[Attributes.MEDIA_TYPE] = self.media_type
@@ -266,19 +261,21 @@ class LiveboxTvUhdClient(object):
             self._show_start_dt = 0
             self._show_duration = 0
             self._show_position = 0
-            self.events.emit(
-                Events.UPDATE,
-                self.id,
-                {
-                    Attributes.SOURCE: "",
-                    Attributes.MEDIA_IMAGE_URL: "",
-                    Attributes.MEDIA_TITLE: "",
-                    Attributes.MEDIA_POSITION: 0,
-                    Attributes.MEDIA_DURATION: 0,
-                    Attributes.MEDIA_TYPE: MediaType.TVSHOW,
-                    Attributes.STATE: self.state,
-                },
-            )
+            if current_state != self.state:
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
+                self.events.emit(
+                    Events.UPDATE,
+                    self.id,
+                    {
+                        Attributes.SOURCE: "",
+                        Attributes.MEDIA_IMAGE_URL: "",
+                        Attributes.MEDIA_TITLE: "",
+                        Attributes.MEDIA_POSITION: 0,
+                        Attributes.MEDIA_DURATION: 0,
+                        Attributes.MEDIA_TYPE: MediaType.TVSHOW,
+                        Attributes.STATE: self.state,
+                    },
+                )
         return _data
 
     @property

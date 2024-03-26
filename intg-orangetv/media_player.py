@@ -55,7 +55,7 @@ class OrangeMediaPlayer(MediaPlayer):
         attributes = {
             Attributes.STATE: States.UNAVAILABLE,
             Attributes.SOURCE: "",
-            Attributes.SOURCE_LIST: [],
+            Attributes.SOURCE_LIST: self._device.channel_names,
             Attributes.MEDIA_IMAGE_URL: "",
             Attributes.MEDIA_TITLE: "",
             Attributes.MEDIA_POSITION: 0,
