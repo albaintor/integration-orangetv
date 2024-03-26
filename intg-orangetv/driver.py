@@ -234,7 +234,7 @@ async def on_avr_update(device_id: str, update: dict[str, Any] | None) -> None:
             MediaAttr.SOURCE_LIST: device.channel_names,
             MediaAttr.MEDIA_POSITION: device.show_position,
             MediaAttr.MEDIA_DURATION: device.show_duration,
-            MediaAttr.MEDIA_TYPE: MediaType.TVSHOW,
+            MediaAttr.MEDIA_TYPE: device.media_type,
         }
     else:
         _LOG.info("[%s] OrangeTV update: %s", device_id, update)

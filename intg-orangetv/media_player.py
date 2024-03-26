@@ -165,59 +165,53 @@ class OrangeMediaPlayer(MediaPlayer):
             return StatusCodes.OK
         return StatusCodes.BAD_REQUEST
 
-    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
-        """
-        Filter the given attributes and return only the changed values.
+    # def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
+    #     """
+    #     Filter the given attributes and return only the changed values.
+    #
+    #     :param update: dictionary with attributes.
+    #     :return: filtered entity attributes containing changed attributes only.
+    #     """
+    #     attributes = {}
+    #
+    #     if len(self.attributes[Attributes.SOURCE_LIST]) == 0:
+    #         update[Attributes.SOURCE_LIST] = self._device.channel_names
+    #
+    #     if Attributes.STATE in update:
+    #         state = state_from_device(update[Attributes.STATE])
+    #         attributes = self._key_update_helper(Attributes.STATE, state, attributes)
+    #
+    #     for attr in [
+    #         Attributes.SOURCE,
+    #         Attributes.SOURCE_LIST,
+    #         Attributes.MEDIA_IMAGE_URL,
+    #         Attributes.MEDIA_TITLE,
+    #         Attributes.MEDIA_POSITION,
+    #         Attributes.MEDIA_DURATION,
+    #     ]:
+    #         if attr in update:
+    #             attributes = self._key_update_helper(attr, update[attr], attributes)
+    #
+    #     if Attributes.STATE in attributes:
+    #         if attributes[Attributes.STATE] == States.OFF:
+    #             attributes[Attributes.MEDIA_IMAGE_URL] = ""
+    #             attributes[Attributes.MEDIA_TITLE] = ""
+    #             attributes[Attributes.MEDIA_TYPE] = ""
+    #             attributes[Attributes.SOURCE] = ""
+    #
+    #     return attributes
 
-        :param update: dictionary with attributes.
-        :return: filtered entity attributes containing changed attributes only.
-        """
-        attributes = {}
-
-        if len(self.attributes[Attributes.SOURCE_LIST]) == 0:
-            update[Attributes.SOURCE_LIST] = self._device.channel_names
-
-        if Attributes.STATE in update:
-            state = state_from_device(update[Attributes.STATE])
-            attributes = self._key_update_helper(Attributes.STATE, state, attributes)
-
-        for attr in [
-            Attributes.SOURCE,
-            Attributes.SOURCE_LIST,
-            Attributes.MEDIA_IMAGE_URL,
-            Attributes.MEDIA_TITLE,
-            Attributes.MEDIA_POSITION,
-            Attributes.MEDIA_DURATION,
-        ]:
-            if attr in update:
-                attributes = self._key_update_helper(attr, update[attr], attributes)
-
-        # Static list
-        # if Attributes.SOURCE_LIST in update:
-        #     if Attributes.SOURCE_LIST in self.attributes:
-        #         if update[Attributes.SOURCE_LIST] != self.attributes[Attributes.SOURCE_LIST]:
-        #             attributes[Attributes.SOURCE_LIST] = update[Attributes.SOURCE_LIST]
-
-        if Attributes.STATE in attributes:
-            if attributes[Attributes.STATE] == States.OFF:
-                attributes[Attributes.MEDIA_IMAGE_URL] = ""
-                attributes[Attributes.MEDIA_TITLE] = ""
-                attributes[Attributes.MEDIA_TYPE] = ""
-                attributes[Attributes.SOURCE] = ""
-
-        return attributes
-
-    def _key_update_helper(self, key: str, value: str | None, attributes):
-        if value is None:
-            return attributes
-
-        if key in self.attributes:
-            if self.attributes[key] != value:
-                attributes[key] = value
-        else:
-            attributes[key] = value
-
-        return attributes
+    # def _key_update_helper(self, key: str, value: str | None, attributes):
+    #     if value is None:
+    #         return attributes
+    #
+    #     if key in self.attributes:
+    #         if self.attributes[key] != value:
+    #             attributes[key] = value
+    #     else:
+    #         attributes[key] = value
+    #
+    #     return attributes
 
 
 def state_from_device(client_state: client.States) -> States:
