@@ -53,14 +53,14 @@ class OrangeMediaPlayer(MediaPlayer):
             Features.MEDIA_DURATION
         ]
         attributes = {
-            Attributes.STATE: States.UNAVAILABLE,
-            Attributes.SOURCE: "",
-            Attributes.SOURCE_LIST: self._device.channel_names,
-            Attributes.MEDIA_IMAGE_URL: "",
-            Attributes.MEDIA_TITLE: "",
-            Attributes.MEDIA_POSITION: 0,
-            Attributes.MEDIA_DURATION: 0,
-            Attributes.MEDIA_TYPE: MediaType.TVSHOW,
+            Attributes.STATE: state_from_device(device.state),
+            Attributes.SOURCE: device.channel_name if device.channel_name else "",
+            Attributes.SOURCE_LIST: device.channel_names,
+            Attributes.MEDIA_IMAGE_URL: device.show_img if device.show_img else "",
+            Attributes.MEDIA_TITLE: device.show_title if device.show_title else "",
+            Attributes.MEDIA_POSITION: device.show_position,
+            Attributes.MEDIA_DURATION: device.show_duration,
+            Attributes.MEDIA_TYPE: device.media_type if device.media_type else MediaType.TVSHOW,
         }
         # # use sound mode support & name from configuration: receiver might not yet be connected
         # if device.support_sound_mode:
@@ -164,54 +164,6 @@ class OrangeMediaPlayer(MediaPlayer):
         if result and result.get("responseCode", None) == "0":
             return StatusCodes.OK
         return StatusCodes.BAD_REQUEST
-
-    # def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
-    #     """
-    #     Filter the given attributes and return only the changed values.
-    #
-    #     :param update: dictionary with attributes.
-    #     :return: filtered entity attributes containing changed attributes only.
-    #     """
-    #     attributes = {}
-    #
-    #     if len(self.attributes[Attributes.SOURCE_LIST]) == 0:
-    #         update[Attributes.SOURCE_LIST] = self._device.channel_names
-    #
-    #     if Attributes.STATE in update:
-    #         state = state_from_device(update[Attributes.STATE])
-    #         attributes = self._key_update_helper(Attributes.STATE, state, attributes)
-    #
-    #     for attr in [
-    #         Attributes.SOURCE,
-    #         Attributes.SOURCE_LIST,
-    #         Attributes.MEDIA_IMAGE_URL,
-    #         Attributes.MEDIA_TITLE,
-    #         Attributes.MEDIA_POSITION,
-    #         Attributes.MEDIA_DURATION,
-    #     ]:
-    #         if attr in update:
-    #             attributes = self._key_update_helper(attr, update[attr], attributes)
-    #
-    #     if Attributes.STATE in attributes:
-    #         if attributes[Attributes.STATE] == States.OFF:
-    #             attributes[Attributes.MEDIA_IMAGE_URL] = ""
-    #             attributes[Attributes.MEDIA_TITLE] = ""
-    #             attributes[Attributes.MEDIA_TYPE] = ""
-    #             attributes[Attributes.SOURCE] = ""
-    #
-    #     return attributes
-
-    # def _key_update_helper(self, key: str, value: str | None, attributes):
-    #     if value is None:
-    #         return attributes
-    #
-    #     if key in self.attributes:
-    #         if self.attributes[key] != value:
-    #             attributes[key] = value
-    #     else:
-    #         attributes[key] = value
-    #
-    #     return attributes
 
 
 def state_from_device(client_state: client.States) -> States:
