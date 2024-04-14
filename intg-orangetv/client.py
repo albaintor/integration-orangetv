@@ -8,10 +8,10 @@ import logging
 from enum import IntEnum
 
 import requests
-import time
 import calendar
 
 import ucapi.media_player
+from dateutil.tz import tz
 from fuzzywuzzy import process
 from pyee import AsyncIOEventEmitter
 from ucapi.media_player import MediaType, Attributes
@@ -52,9 +52,9 @@ class LiveboxTvUhdClient(object):
         self.country = country
         # import const for country
         if self.country == "france":
-            from const_france import CHANNELS, EPG_URL, EPG_USER_AGENT
+            from const_france import CHANNELS, EPG_URL, EPG_USER_AGENT, TIMEZONE
         elif self.country == "poland":
-            from const_poland import CHANNELS, EPG_URL, EPG_USER_AGENT
+            from const_poland import CHANNELS, EPG_URL, EPG_USER_AGENT, TIMEZONE
         self.channels = CHANNELS
         self.epg_url = EPG_URL
         self.epg_user_agent = EPG_USER_AGENT
@@ -85,6 +85,7 @@ class LiveboxTvUhdClient(object):
         self._state = States.UNKNOWN
         loop = asyncio.get_event_loop()
         self.events = AsyncIOEventEmitter(loop or asyncio.get_running_loop())
+        self._timezone = tz.gettz(TIMEZONE)
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -99,6 +100,19 @@ class LiveboxTvUhdClient(object):
     def connect(self):
         self.update()
         self.events.emit(Events.CONNECTED, self.id)
+
+    def _find_epg_entry(self, data) -> any:
+        if data is None:
+            return None
+        now = datetime.datetime.now(self._timezone)
+        for entry in data:
+            show_start_dt = entry["diffusionDate"]
+            show_duration = entry["duration"]
+            show_start = datetime.datetime.fromtimestamp(show_start_dt, self._timezone)
+            show_end = show_start + datetime.timedelta(0, show_duration)
+            if show_start <= now < show_end:
+                return entry
+        return data[0]
 
     def update(self):
         _LOGGER.debug("Refresh Orange API data")
@@ -162,28 +176,29 @@ class LiveboxTvUhdClient(object):
                 _data2 = self.rq_epg(self._channel_id)
                 if self.country == "france":
                     if _data2 != None and _data2[self._channel_id]:
+                        # Show title depending of programType and current time
+                        entry = self._find_epg_entry(_data2[self._channel_id])
 
-                        # Show title depending of programType
-                        if _data2[self._channel_id][0]["programType"] == "EPISODE":
+                        if entry["programType"] == "EPISODE":
                             self._media_type = MediaType.VIDEO
-                            self._show_series_title = _data2[self._channel_id][0]["title"]
-                            self._show_season = _data2[self._channel_id][0]["season"]["number"]
-                            if hasattr(_data2[self._channel_id][0], "episodeNumber"):
-                                self._show_episode = _data2[self._channel_id][0]["episodeNumber"]
+                            self._show_series_title = entry["title"]
+                            self._show_season = entry["season"]["number"]
+                            if hasattr(entry, "episodeNumber"):
+                                self._show_episode = entry["episodeNumber"]
                             else:
                                 self._show_episode = 0
-                            self._show_title = _data2[self._channel_id][0]["season"]["serie"]["title"]
+                            self._show_title = entry["season"]["serie"]["title"]
                         else:
                             self._media_type = MediaType.TVSHOW
-                            self._show_title = _data2[self._channel_id][0]["title"]
+                            self._show_title = entry["title"]
 
-                        self._show_definition = _data2[self._channel_id][0]["definition"]
-                        self._show_start_dt = _data2[self._channel_id][0]["diffusionDate"]
-                        self._show_duration = _data2[self._channel_id][0]["duration"]
-                        if _data2[self._channel_id][0]["covers"] and len(_data2[self._channel_id][0]["covers"]) > 1:
-                            self._show_img = _data2[self._channel_id][0]["covers"][1]["url"]
-                        elif _data2[self._channel_id][0]["covers"] and len(_data2[self._channel_id][0]["covers"]) > 0:
-                            self._show_img = _data2[self._channel_id][0]["covers"][0]["url"]
+                        self._show_definition = entry["definition"]
+                        self._show_start_dt = entry["diffusionDate"]
+                        self._show_duration = entry["duration"]
+                        if entry["covers"] and len(entry["covers"]) > 1:
+                            self._show_img = entry["covers"][1]["url"]
+                        elif entry["covers"] and len(entry["covers"]) > 0:
+                            self._show_img = entry["covers"][0]["url"]
 
                 elif self.country == "poland":
                     if _data2 != None:

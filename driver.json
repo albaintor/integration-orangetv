@@ -5,7 +5,7 @@
   "name": {
     "en": "Orange TV"
   },
-  "icon": "uc:integration",
+  "icon": "custom:orange.png",
   "description": {
     "en": "Control your Orange TV with Remote Two.",
     "de": "Steuere Orange TV mit Remote Two.",

@@ -7,9 +7,13 @@ This module implements a Remote Two integration driver for Orange STB.
 """
 
 import asyncio
+import json
 import logging
 import os
 from typing import Any
+
+import websockets
+from ucapi.api import filter_log_msg_data, IntegrationAPI
 
 import client
 import config
@@ -20,6 +24,7 @@ import ucapi
 from client import LiveboxTvUhdClient
 from config import device_from_entity_id
 from ucapi.media_player import Attributes as MediaAttr, MediaType
+import ucapi.api_definitions as uc
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 _LOOP = asyncio.get_event_loop()
@@ -343,12 +348,40 @@ async def _async_remove(device: LiveboxTvUhdClient) -> None:
     device.events.remove_all_listeners()
 
 
+async def patched_broadcast_ws_event(
+        self, msg: str, msg_data: dict[str, Any], category: uc.EventCategory
+) -> None:
+    """
+    Send the given event-message to all connected WebSocket clients.
+
+    If a client is no longer connected, a log message is printed and the remaining
+    clients are notified.
+
+    :param msg: event message name
+    :param msg_data: message data payload
+    :param category: event category
+    """
+    data = {"kind": "event", "msg": msg, "msg_data": msg_data, "cat": category}
+    data_dump = json.dumps(data)
+    data_log = None
+    # filter fields
+    if _LOG.isEnabledFor(logging.DEBUG):
+        data_log = json.dumps(data) if filter_log_msg_data(data) else data_dump
+
+    for websocket in self._clients.copy():
+        if _LOG.isEnabledFor(logging.DEBUG):
+            _LOG.debug("[%s] ->: %s", websocket.remote_address, data_log)
+        try:
+            await websocket.send(data_dump)
+        except websockets.exceptions.WebSocketException:
+            pass
+
 async def main():
     """Start the Remote Two integration driver."""
     logging.basicConfig()
 
     level = os.getenv("UC_LOG_LEVEL", "DEBUG").upper()
-    logging.getLogger("avr").setLevel(level)
+    logging.getLogger("client").setLevel(level)
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("driver").setLevel(level)
     logging.getLogger("media_player").setLevel(level)
@@ -368,6 +401,7 @@ async def main():
 
     _LOOP.create_task(device_status_poller())
 
+    IntegrationAPI._broadcast_ws_event = patched_broadcast_ws_event
     await api.init("driver.json", setup_flow.driver_setup_handler)
 
 
