@@ -111,7 +111,6 @@ class Devices:
 
     def update(self, device_instance: DeviceInstance) -> bool:
         """Update a configured Sony device and persist configuration."""
-        _LOG.info("TOTO %s", device_instance.name)
         for item in self._config:
             if item.id == device_instance.id:
                 item.address = device_instance.address
@@ -168,13 +167,9 @@ class Devices:
         try:
             with open(self._cfg_file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            _LOG.warning("TOTO")
-            _LOG.warning("EXISTING DATA %s", json.dumps(data))
             for item in data:
                 try:
-                    _LOG.warning("TOTO2")
                     self._config.append(DeviceInstance(**item))
-                    _LOG.warning("TOTO 3")
                 except TypeError as ex:
                     _LOG.warning("Invalid configuration entry will be ignored: %s", ex)
             return True

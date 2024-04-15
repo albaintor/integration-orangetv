@@ -93,70 +93,70 @@ class OrangeMediaPlayer(MediaPlayer):
             return StatusCodes.SERVICE_UNAVAILABLE
 
         if cmd_id == Commands.VOLUME_UP:
-            res = self._device.volume_up()
+            res = await self._device.volume_up()
         elif cmd_id == Commands.VOLUME_DOWN:
-            res = self._device.volume_down()
+            res = await self._device.volume_down()
         elif cmd_id == Commands.MUTE_TOGGLE:
-            res = self._device.mute()
+            res = await self._device.mute()
         elif cmd_id == Commands.ON:
-            self._device.turn_on()
+            await self._device.turn_on()
             return StatusCodes.OK
         elif cmd_id == Commands.OFF:
-            self._device.turn_off()
+            await self._device.turn_off()
             return StatusCodes.OK
         elif cmd_id == Commands.TOGGLE:
-            self._device.press_key("POWER")
+            await self._device.press_key("POWER")
             return StatusCodes.OK
         elif cmd_id == Commands.SELECT_SOURCE:
-            res = self._device.set_channel_by_name(params.get("source"))
+            res = await self._device.set_channel_by_name(params.get("source"))
         elif cmd_id == Commands.CHANNEL_UP:
-            res = self._device.channel_up()
+            res = await self._device.channel_up()
         elif cmd_id == Commands.CHANNEL_DOWN:
-            res = self._device.channel_down()
+            res = await self._device.channel_down()
         elif cmd_id == Commands.PLAY_PAUSE:
-            res = self._device.play_pause()
+            res = await self._device.play_pause()
         elif cmd_id == Commands.FAST_FORWARD:
-            res = self._device.press_key("FFWD")
+            res = await self._device.press_key("FFWD")
         elif cmd_id == Commands.REWIND:
-            res = self._device.press_key("FBWD")
+            res = await self._device.press_key("FBWD")
         elif cmd_id == Commands.RECORD:
-            res = self._device.press_key("REC")
+            res = await self._device.press_key("REC")
         elif cmd_id == Commands.CURSOR_UP:
-            res = self._device.press_key("UP")
+            res = await self._device.press_key("UP")
         elif cmd_id == Commands.CURSOR_DOWN:
-            res = self._device.press_key("DOWN")
+            res = await self._device.press_key("DOWN")
         elif cmd_id == Commands.CURSOR_LEFT:
-            res = self._device.press_key("LEFT")
+            res = await self._device.press_key("LEFT")
         elif cmd_id == Commands.CURSOR_RIGHT:
-            res = self._device.press_key("RIGHT")
+            res = await self._device.press_key("RIGHT")
         elif cmd_id == Commands.CURSOR_ENTER:
-            res = self._device.press_key("OK")
+            res = await self._device.press_key("OK")
         elif cmd_id == Commands.BACK:
-            res = self._device.press_key("BACK")
+            res = await self._device.press_key("BACK")
         elif cmd_id == Commands.MENU:
-            res = self._device.press_key("MENU")
+            res = await self._device.press_key("MENU")
         elif cmd_id == Commands.MY_RECORDINGS:
-            res = self._device.press_key("VOD")
+            res = await self._device.press_key("VOD")
         elif cmd_id == Commands.DIGIT_0:
-            res = self._device.press_key("0")
+            res = await self._device.press_key("0")
         elif cmd_id == Commands.DIGIT_1:
-            res = self._device.press_key("1")
+            res = await self._device.press_key("1")
         elif cmd_id == Commands.DIGIT_2:
-            res = self._device.press_key("2")
+            res =await  self._device.press_key("2")
         elif cmd_id == Commands.DIGIT_3:
-            res = self._device.press_key("3")
+            res = await self._device.press_key("3")
         elif cmd_id == Commands.DIGIT_4:
-            res = self._device.press_key("4")
+            res = await self._device.press_key("4")
         elif cmd_id == Commands.DIGIT_5:
-            res = self._device.press_key("5")
+            res = await self._device.press_key("5")
         elif cmd_id == Commands.DIGIT_6:
-            res = self._device.press_key("6")
+            res = await self._device.press_key("6")
         elif cmd_id == Commands.DIGIT_7:
-            res = self._device.press_key("7")
+            res = await self._device.press_key("7")
         elif cmd_id == Commands.DIGIT_8:
-            res = self._device.press_key("8")
+            res = await self._device.press_key("8")
         elif cmd_id == Commands.DIGIT_9:
-            res = self._device.press_key("9")
+            res = await self._device.press_key("9")
         else:
             return StatusCodes.NOT_IMPLEMENTED
 

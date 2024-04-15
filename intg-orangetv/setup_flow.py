@@ -253,7 +253,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         try:
             # simple connection check
             device = LiveboxTvUhdClient(address)
-            data = device.rq_livebox(OPERATION_INFORMATION)
+            data = await device.rq_livebox(OPERATION_INFORMATION)
             friendly_name = data["result"]["data"]["friendlyName"]
             dropdown_items.append({"id": address, "label": {"en": f"{friendly_name} [{address}]"}})
         except Exception as ex:
@@ -340,7 +340,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     try:
         # simple connection check
         device = LiveboxTvUhdClient(host, country=country)
-        data = device.rq_livebox(OPERATION_INFORMATION)
+        data = await device.rq_livebox(OPERATION_INFORMATION)
         friendly_name = data["result"]["data"]["friendlyName"]
         identifier = data["result"]["data"]["macAddress"]
     except Exception as ex:

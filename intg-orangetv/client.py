@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 import asyncio
+import aiohttp
 import datetime
+from asyncio import Lock
 from collections import OrderedDict
 import json
 import logging
@@ -11,6 +13,7 @@ import requests
 import calendar
 
 import ucapi.media_player
+from aiohttp import ClientSession
 from dateutil.tz import tz
 from fuzzywuzzy import process
 from pyee import AsyncIOEventEmitter
@@ -83,9 +86,12 @@ class LiveboxTvUhdClient(object):
         self._last_channel_id = None
         self._cache_channel_img = {}
         self._state = States.UNKNOWN
-        loop = asyncio.get_event_loop()
-        self.events = AsyncIOEventEmitter(loop or asyncio.get_running_loop())
+        self._event_loop = asyncio.get_event_loop() or asyncio.get_running_loop()
+        self.events = AsyncIOEventEmitter(self._event_loop)
         self._timezone = tz.gettz(TIMEZONE)
+        self._epg_data = None
+        self._update_lock = Lock()
+        self._session: ClientSession | None = None
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -97,11 +103,22 @@ class LiveboxTvUhdClient(object):
         else:
             self._state = States.ON if self.is_on else States.OFF
 
-    def connect(self):
-        self.update()
+    async def connect(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
+        session_timeout = aiohttp.ClientTimeout(total=None,sock_connect=self.timeout,sock_read=self.timeout)
+        self._session = aiohttp.ClientSession(headers={"User-Agent": self.epg_user_agent},
+                                              timeout=session_timeout,
+                                              raise_for_status=True)
         self.events.emit(Events.CONNECTED, self.id)
 
-    def _find_epg_entry(self, data) -> any:
+    async def disconnect(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
+
+    def _find_epg_entry(self, data, exact_match=False) -> any:
         if data is None:
             return None
         now = datetime.datetime.now(self._timezone)
@@ -112,17 +129,35 @@ class LiveboxTvUhdClient(object):
             show_end = show_start + datetime.timedelta(0, show_duration)
             if show_start <= now < show_end:
                 return entry
-        return data[0]
+        if not exact_match:
+            return data[0]
+        return None
 
-    def update(self):
+    async def _get_epg_data(self, channel_id) -> any:
+        if self._epg_data is None or self._epg_data.get(channel_id, None) is None:
+            self._epg_data = await self.rq_epg(self._channel_id)
+            return self._epg_data
+        epg_data = self._epg_data.get(channel_id, None)
+        found_data = self._find_epg_entry(epg_data, True)
+        if found_data:
+            return self._epg_data
+        self._epg_data = await self.rq_epg(self._channel_id)
+        return self._epg_data
+
+    async def update(self):
+        if self._update_lock.locked():
+            return
+
+        await self._update_lock.acquire()
         _LOGGER.debug("Refresh Orange API data")
-
+        if self._session is None:
+            await self.connect()
         update_data = {}
         current_state = self.state
         self._osd_context = None
         self._channel_id = None
         self._media_state = None
-        _datalivebox = self.rq_livebox(OPERATION_INFORMATION)
+        _datalivebox = await self.rq_livebox(OPERATION_INFORMATION)
         _data = None
         if _datalivebox:
             self._display_con_err = False
@@ -173,11 +208,12 @@ class LiveboxTvUhdClient(object):
                 self._show_start_dt = 0
 
                 # Get EPG information
-                _data2 = self.rq_epg(self._channel_id)
                 if self.country == "france":
-                    if _data2 != None and _data2[self._channel_id]:
+                    epg_data = await self._get_epg_data(self._channel_id)
+                    _LOGGER.debug("EPG data %s", epg_data)
+                    if epg_data is not None and epg_data[self._channel_id]:
                         # Show title depending of programType and current time
-                        entry = self._find_epg_entry(_data2[self._channel_id])
+                        entry = self._find_epg_entry(epg_data[self._channel_id], False)
 
                         if entry["programType"] == "EPISODE":
                             self._media_type = MediaType.VIDEO
@@ -201,16 +237,17 @@ class LiveboxTvUhdClient(object):
                             self._show_img = entry["covers"][0]["url"]
 
                 elif self.country == "poland":
-                    if _data2 != None:
-                        for epg in (_data2).get("epg", None):
+                    _data2 = await self.rq_epg(self._channel_id)
+                    if _data2 is not None:
+                        for epg in _data2.get("epg", None):
                             if self._channel_id in epg.get("channelExternalId", None):
                                 schedules = epg.get("schedule", None)
                                 for sch in schedules:
                                     d = datetime.datetime.utcnow()
                                     if (
-                                        sch.get("startDate", None)
-                                        <= calendar.timegm(d.utctimetuple())
-                                        <= sch.get("endDate", None)
+                                            sch.get("startDate", None)
+                                            <= calendar.timegm(d.utctimetuple())
+                                            <= sch.get("endDate", None)
                                     ):
                                         self._show_start_dt = sch.get("startDate", None)
                                         self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
@@ -238,7 +275,8 @@ class LiveboxTvUhdClient(object):
                 self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
 
             if current_state != self.state:
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state,
+                                                                               ucapi.media_player.States.UNKNOWN)
             if current_title != self.show_title:
                 update_data[Attributes.MEDIA_TITLE] = self.show_title
                 update_data[Attributes.MEDIA_TYPE] = self.media_type
@@ -277,7 +315,8 @@ class LiveboxTvUhdClient(object):
             self._show_duration = 0
             self._show_position = 0
             if current_state != self.state:
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state, ucapi.media_player.States.UNKNOWN)
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state,
+                                                                               ucapi.media_player.States.UNKNOWN)
                 self.events.emit(
                     Events.UPDATE,
                     self.id,
@@ -291,6 +330,7 @@ class LiveboxTvUhdClient(object):
                         Attributes.STATE: self.state,
                     },
                 )
+        self._update_lock.release()
         return _data
 
     @property
@@ -342,8 +382,8 @@ class LiveboxTvUhdClient(object):
         return self._channel_name
 
     @channel_name.setter
-    def channel_name(self, value):
-        self.set_channel_by_name(value)
+    async def channel_name(self, value):
+        await self.set_channel_by_name(value)
 
     @property
     def channel_names(self):
@@ -380,10 +420,6 @@ class LiveboxTvUhdClient(object):
     def is_on(self):
         return self.standby_state
 
-    @property
-    def info(self):
-        return self.update()
-
     # TODO
     @staticmethod
     def discover():
@@ -394,24 +430,24 @@ class LiveboxTvUhdClient(object):
 
     async def async_turn_on(self):
         if not self.standby_state:
-            self.press_key(key=KEYS["POWER"])
+            await self.press_key(key=KEYS["POWER"])
             await asyncio.sleep(2)
-            self.press_key(key=KEYS["OK"])
+            await self.press_key(key=KEYS["OK"])
 
-    def turn_on(self):
+    async def turn_on(self):
         if not self.standby_state:
-            asyncio.create_task(self.async_turn_on())
+            await self.async_turn_on()
 
-    def turn_off(self):
+    async def turn_off(self):
         if self.standby_state:
-            return self.press_key(key=KEYS["POWER"])
+            return await self.press_key(key=KEYS["POWER"])
 
     def __get_key_name(self, key_id):
         for key_name, k_id in KEYS.items():
             if k_id == key_id:
                 return key_name
 
-    def press_key(self, key, mode=0):
+    async def press_key(self, key, mode=0):
         """
         modes:
             0 -> simple press
@@ -422,34 +458,38 @@ class LiveboxTvUhdClient(object):
             assert key in KEYS, "No such key: {}".format(key)
             key = KEYS[key]
         _LOGGER.debug("Press key %s", self.__get_key_name(key))
-        return self.rq_livebox(OPERATION_KEYPRESS, OrderedDict([("key", key), ("mode", mode)]))
+        return await self.rq_livebox(OPERATION_KEYPRESS, OrderedDict([("key", key), ("mode", mode)]))
 
-    def volume_up(self):
-        return self.press_key(key=KEYS["VOL+"])
+    async def volume_up(self):
+        return await self.press_key(key=KEYS["VOL+"])
 
-    def volume_down(self):
-        return self.press_key(key=KEYS["VOL-"])
+    async def volume_down(self):
+        return await self.press_key(key=KEYS["VOL-"])
 
-    def mute(self):
-        return self.press_key(key=KEYS["MUTE"])
+    async def mute(self):
+        return await self.press_key(key=KEYS["MUTE"])
 
-    def channel_up(self):
-        return self.press_key(key=KEYS["CH+"])
+    async def channel_up(self):
+        result = await self.press_key(key=KEYS["CH+"])
+        await self._event_loop.create_task(self.update())
+        return result
 
-    def channel_down(self):
-        return self.press_key(key=KEYS["CH-"])
+    async def channel_down(self):
+        result = await self.press_key(key=KEYS["CH-"])
+        await self._event_loop.create_task(self.update())
+        return result
 
-    def play_pause(self):
-        return self.press_key(key=KEYS["PLAY/PAUSE"])
+    async def play_pause(self):
+        return await self.press_key(key=KEYS["PLAY/PAUSE"])
 
-    def play(self):
+    async def play(self):
         if self.media_state == "PAUSE":
-            return self.play_pause()
+            return await self.play_pause()
         _LOGGER.debug("Media is already playing.")
 
-    def pause(self):
+    async def pause(self):
         if self.media_state == "PLAY":
-            return self.play_pause()
+            return await self.play_pause()
         _LOGGER.debug("Media is already paused.")
 
     def get_channel_names(self, json_output=False):
@@ -480,32 +520,30 @@ class LiveboxTvUhdClient(object):
         res = [c for c in self.channels if c["epg_id"] == epg_id]
         return res[0] if res else None
 
-    def set_channel_by_id(self, epg_id):
+    async def set_channel_by_id(self, epg_id):
         # The EPG ID needs to be 10 chars long, padded with '*' chars
+        self._event_loop.call_later(2, self.update)
         epg_id_str = str(epg_id).rjust(10, "*")
         _LOGGER.debug("Tune to channel %s, epg_id %s", self.get_channel_from_epg_id(epg_id)["name"], epg_id_str)
-        return self.rq_livebox(OPERATION_CHANNEL_CHANGE, OrderedDict([("epg_id", epg_id_str), ("uui", "1")]))
+        result = await self.rq_livebox(OPERATION_CHANNEL_CHANGE, OrderedDict([("epg_id", epg_id_str), ("uui", "1")]))
+        await self._event_loop.create_task(self.update())
+        return result
 
-    def set_channel_by_name(self, channel):
+    async def set_channel_by_name(self, channel):
         epg_id = self.get_channel_id_from_name(channel)
-        return self.set_channel_by_id(epg_id)
+        return await self.set_channel_by_id(epg_id)
 
-    def rq_livebox(self, operation, params=None):
+    async def rq_livebox(self, operation, params=None):
         url = "http://{}:{}/remoteControl/cmd".format(self.hostname, self.port)
         get_params = OrderedDict({"operation": operation})
         _LOGGER.debug("Request Livebox operation %s", operation)
         if params:
             get_params.update(params)
         try:
-            r = requests.get(url, params=get_params, timeout=self.timeout)
-            r.raise_for_status()
-            _LOGGER.debug("Livebox response: %s", r.json())
-            return r.json()
-        except requests.exceptions.RequestException as err:
-            self._standby_state = "1"
-            if self._display_con_err:
-                self._display_con_err = False
-                _LOGGER.error(err)
+            async with self._session.get(url, params=get_params) as r:
+                results = await r.json()
+                _LOGGER.debug("Livebox response: %s", results)
+                return results
         except requests.exceptions.HTTPError as errh:
             self._standby_state = "1"
             if self._display_con_err:
@@ -521,22 +559,24 @@ class LiveboxTvUhdClient(object):
             if self._display_con_err:
                 self._display_con_err = False
                 _LOGGER.error(errt)
+        except requests.exceptions.RequestException as err:
+            self._standby_state = "1"
+            if self._display_con_err:
+                self._display_con_err = False
+                _LOGGER.error(err)
 
-    def rq_epg(self, channel_id):
+    async def rq_epg(self, channel_id):
+        get_params = None
         if self.country == "france":
             get_params = OrderedDict({"groupBy": "channel", "period": "current", "epgIds": channel_id, "mco": "OFR"})
         elif self.country == "poland":
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
         _LOGGER.debug("Request EPG channel id %s", channel_id)
         try:
-            headers = {"User-Agent": self.epg_user_agent}
-            r = requests.get(self.epg_url, headers=headers, params=get_params, timeout=self.timeout)
-            r.raise_for_status()
-            _LOGGER.debug("EPG response: %s", r.json())
-            return r.json()
-        except requests.exceptions.RequestException as err:
-            _LOGGER.error("EPG response: %s", err)
-            pass
+            async with self._session.get(self.epg_url, params=get_params) as r:
+                results = await r.json()
+                _LOGGER.debug("EPG response: %s", results)
+                return results
         except requests.exceptions.HTTPError as errh:
             _LOGGER.error("EPG response: %s", errh)
             pass
@@ -545,4 +585,7 @@ class LiveboxTvUhdClient(object):
             pass
         except requests.exceptions.Timeout as errt:
             _LOGGER.error("EPG response: %s", errt)
+            pass
+        except requests.exceptions.RequestException as err:
+            _LOGGER.error("EPG response: %s", err)
             pass

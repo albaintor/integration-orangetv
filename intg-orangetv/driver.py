@@ -12,19 +12,18 @@ import logging
 import os
 from typing import Any
 
+import ucapi
+import ucapi.api_definitions as uc
 import websockets
 from ucapi.api import filter_log_msg_data, IntegrationAPI
+from ucapi.media_player import Attributes as MediaAttr
 
 import client
 import config
 import media_player
 import setup_flow
-import ucapi
-
 from client import LiveboxTvUhdClient
 from config import device_from_entity_id
-from ucapi.media_player import Attributes as MediaAttr, MediaType
-import ucapi.api_definitions as uc
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 _LOOP = asyncio.get_event_loop()
@@ -48,7 +47,7 @@ async def device_status_poller(interval: float = 10.0) -> None:
                 # if not device.is_on:
                 #     continue
                 # TODO #20  run in parallel, join, adjust interval duration based on execution time for next update
-                device.update()
+                await device.update()
         except (KeyError, ValueError):
             pass
 
@@ -58,18 +57,19 @@ async def on_r2_connect_cmd() -> None:
     """Connect all configured receivers when the Remote Two sends the connect command."""
     # TODO check if we were in standby and ignore the call? We'll also get an EXIT_STANDBY
     _LOG.debug("R2 connect command: connecting device(s)")
+    await api.set_device_state(ucapi.DeviceStates.CONNECTED)
     for device in _configured_devices.values():
         # start background task
-        device.connect()
+        await device.connect()
+        await _LOOP.create_task(device.update())
 
 
 @api.listens_to(ucapi.Events.DISCONNECT)
 async def on_r2_disconnect_cmd():
     """Disconnect all configured receivers when the Remote Two sends the disconnect command."""
-    return
-    # for device in _configured_devices.values():
-    #     # start background task
-    #     await device.disconnect()
+    for device in _configured_devices.values():
+        # start background task
+        await device.disconnect()
 
 
 @api.listens_to(ucapi.Events.ENTER_STANDBY)
@@ -81,9 +81,9 @@ async def on_r2_enter_standby() -> None:
     global _R2_IN_STANDBY
     _R2_IN_STANDBY = True
     _LOG.debug("Enter standby event: disconnecting device(s)")
-    # for device in _configured_devices.values():
-    #     # start background task
-    #     await device.disconnect()
+    for device in _configured_devices.values():
+        # start background task
+        await device.disconnect()
 
 
 @api.listens_to(ucapi.Events.EXIT_STANDBY)
@@ -100,7 +100,8 @@ async def on_r2_exit_standby() -> None:
 
     for device in _configured_devices.values():
         # start background task
-        await device.update()
+        await device.connect()
+        await _LOOP.create_task(device.update())
 
 
 @api.listens_to(ucapi.Events.SUBSCRIBE_ENTITIES)
@@ -151,7 +152,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 async def on_device_connected(device_id: str):
     """Handle AVR connection."""
     _LOG.debug("Device connected: %s", device_id)
-
+    await api.set_device_state(ucapi.DeviceStates.CONNECTED)
     if device_id not in _configured_devices:
         _LOG.warning("Device %s is not configured", device_id)
         return
@@ -297,7 +298,7 @@ def _configure_new_device(device_config: config.DeviceInstance, connect: bool = 
 
     if connect:
         # start background connection task
-        device.update()
+        _LOOP.create_task(device.update())
         _LOOP.create_task(on_device_connected(device_config.id))
     _register_available_entities(device_config, device)
 
@@ -397,7 +398,7 @@ async def main():
     for device in _configured_devices.values():
         if not device.is_on:
             continue
-        device.update()
+            _LOOP.create_task(device.update())
 
     _LOOP.create_task(device_status_poller())
 
