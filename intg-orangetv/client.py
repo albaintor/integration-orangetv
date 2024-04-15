@@ -13,7 +13,8 @@ import requests
 import calendar
 
 import ucapi.media_player
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ServerTimeoutError, ClientConnectionError
+from aiohttp.web_exceptions import HTTPRequestTimeout
 from dateutil.tz import tz
 from fuzzywuzzy import process
 from pyee import AsyncIOEventEmitter
@@ -544,26 +545,11 @@ class LiveboxTvUhdClient(object):
                 results = await r.json()
                 _LOGGER.debug("Livebox response: %s", results)
                 return results
-        except requests.exceptions.HTTPError as errh:
+        except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             self._standby_state = "1"
             if self._display_con_err:
                 self._display_con_err = False
                 _LOGGER.error(errh)
-        except requests.exceptions.ConnectionError as errc:
-            self._standby_state = "1"
-            if self._display_con_err:
-                self._display_con_err = False
-                _LOGGER.error(errc)
-        except requests.exceptions.Timeout as errt:
-            self._standby_state = "1"
-            if self._display_con_err:
-                self._display_con_err = False
-                _LOGGER.error(errt)
-        except requests.exceptions.RequestException as err:
-            self._standby_state = "1"
-            if self._display_con_err:
-                self._display_con_err = False
-                _LOGGER.error(err)
 
     async def rq_epg(self, channel_id):
         get_params = None
@@ -577,15 +563,6 @@ class LiveboxTvUhdClient(object):
                 results = await r.json()
                 _LOGGER.debug("EPG response: %s", results)
                 return results
-        except requests.exceptions.HTTPError as errh:
+        except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             _LOGGER.error("EPG response: %s", errh)
-            pass
-        except requests.exceptions.ConnectionError as errc:
-            _LOGGER.error("EPG response: %s", errc)
-            pass
-        except requests.exceptions.Timeout as errt:
-            _LOGGER.error("EPG response: %s", errt)
-            pass
-        except requests.exceptions.RequestException as err:
-            _LOGGER.error("EPG response: %s", err)
             pass
