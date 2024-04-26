@@ -223,4 +223,10 @@ CHANNELS = [
     {"index": "608", "epg_id": "1461", "name": "NOLLYWOOD TV"},
     {"index": "611", "epg_id": "984", "name": "EQUINOXE"},
     {"index": "612", "epg_id": "1466", "name": "B-ONE"},
+    {"index": "613", "epg_id": "3504", "name": "CANAL+ SPORT360"},
+    {"index": "614", "epg_id": "3501", "name": "CANAL+ FOOT"},
+    {"index": "615", "epg_id": "3779", "name": "CANAL+ BOX OFFICE"},
+    {"index": "616", "epg_id": "3347", "name": "CANAL+ DOCS"},
+    {"index": "617", "epg_id": "3348", "name": "CANAL+ KIDS"},
+    {"index": "618", "epg_id": "3349", "name": "CANAL+ GRAND ECRAN"},
 ]
