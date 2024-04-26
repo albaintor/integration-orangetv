@@ -1,6 +1,6 @@
 # Orange TV STB integration for Remote Two
 
-Using code from [Orange Home Assistant component](https://github.com/AkA57/liveboxtvuhd)
+Using (modified) code from [Orange Home Assistant component](https://github.com/AkA57/liveboxtvuhd)
 and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
 The driver discovers Orange TV STB on the network. A media player entity is exposed to the core.
@@ -107,12 +107,12 @@ docker run --rm --name builder \
 ## Versioning
 
 We use [SemVer](http://semver.org/) for versioning. For the versions available, see the
-[tags and releases in this repository](https://github.com/unfoldedcircle/integration-sonyavr/releases).
+[tags and releases in this repository](https://github.com/albaintor/integration-orange/releases).
 
 ## Changelog
 
 The major changes found in each new release are listed in the [changelog](CHANGELOG.md)
-and under the GitHub [releases](https://github.com/unfoldedcircle/integration-sonyavr/releases).
+and under the GitHub [releases](https://github.com/albaintor/integration-orange/releases).
 
 ## Contributions
 
