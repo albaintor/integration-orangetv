@@ -1,5 +1,5 @@
 pyee>=9.0
-ucapi==0.1.7
+ucapi==0.2.0
 
 logging~=0.4.9.6
 requests~=2.31.0

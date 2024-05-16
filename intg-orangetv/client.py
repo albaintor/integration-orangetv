@@ -150,7 +150,7 @@ class LiveboxTvUhdClient(object):
             return
 
         await self._update_lock.acquire()
-        _LOGGER.debug("Refresh Orange API data")
+        # _LOGGER.debug("Refresh Orange API data")
         if self._session is None:
             await self.connect()
         update_data = {}
@@ -186,8 +186,8 @@ class LiveboxTvUhdClient(object):
                 self.refresh_state()
 
         # If a channel is displayed
-        if self._channel_id and self.get_channel_from_epg_id(self._channel_id):
-
+        if self._channel_id:
+            channel = self.get_channel_from_epg_id(self._channel_id)
             current_title = self.show_title
             current_img = self.show_img
             current_position = self.show_position
@@ -197,7 +197,10 @@ class LiveboxTvUhdClient(object):
             # We should update all information only if channel or show change
             if self._channel_id != self._last_channel_id or self._show_position > self._show_duration:
                 self._last_channel_id = self._channel_id
-                self._channel_name = self.get_channel_from_epg_id(self._channel_id)["name"]
+                if channel:
+                    self._channel_name = channel["name"]
+                else:
+                    self._channel_name = None
 
                 # Reset everything
                 self._show_series_title = None
@@ -209,65 +212,71 @@ class LiveboxTvUhdClient(object):
                 self._show_start_dt = 0
 
                 # Get EPG information
-                if self.country == "france":
-                    epg_data = await self._get_epg_data(self._channel_id)
-                    _LOGGER.debug("EPG data %s", epg_data)
-                    if epg_data is not None and epg_data[self._channel_id]:
-                        # Show title depending of programType and current time
-                        entry = self._find_epg_entry(epg_data[self._channel_id], False)
+                channel_id = None
+                try:
+                    channel_id = int(self._channel_id)
+                except (ValueError, Exception):
+                    pass
 
-                        if entry["programType"] == "EPISODE":
-                            self._media_type = MediaType.VIDEO
-                            self._show_series_title = entry["title"]
-                            self._show_season = entry["season"]["number"]
-                            if hasattr(entry, "episodeNumber"):
-                                self._show_episode = entry["episodeNumber"]
+                if channel_id and channel_id != 0:
+                    if self.country == "france":
+                        epg_data = await self._get_epg_data(self._channel_id)
+                        if epg_data is not None and epg_data[self._channel_id]:
+                            # Show title depending of programType and current time
+                            entry = self._find_epg_entry(epg_data[self._channel_id], False)
+
+                            if entry["programType"] == "EPISODE":
+                                self._media_type = MediaType.VIDEO
+                                self._show_series_title = entry["title"]
+                                self._show_season = entry["season"]["number"]
+                                if entry.get("episodeNumber", None):
+                                    self._show_episode = entry["episodeNumber"]
+                                else:
+                                    self._show_episode = 0
+                                self._show_title = entry["season"]["serie"]["title"]
                             else:
-                                self._show_episode = 0
-                            self._show_title = entry["season"]["serie"]["title"]
-                        else:
-                            self._media_type = MediaType.TVSHOW
-                            self._show_title = entry["title"]
+                                self._media_type = MediaType.TVSHOW
+                                self._show_title = entry["title"]
 
-                        self._show_definition = entry["definition"]
-                        self._show_start_dt = entry["diffusionDate"]
-                        self._show_duration = entry["duration"]
-                        if entry["covers"] and len(entry["covers"]) > 1:
-                            self._show_img = entry["covers"][1]["url"]
-                        elif entry["covers"] and len(entry["covers"]) > 0:
-                            self._show_img = entry["covers"][0]["url"]
+                            self._show_definition = entry["definition"]
+                            self._show_start_dt = entry["diffusionDate"]
+                            self._show_duration = entry["duration"]
+                            if entry["covers"] and len(entry["covers"]) > 1:
+                                self._show_img = entry["covers"][1]["url"]
+                            elif entry["covers"] and len(entry["covers"]) > 0:
+                                self._show_img = entry["covers"][0]["url"]
 
-                elif self.country == "poland":
-                    _data2 = await self.rq_epg(self._channel_id)
-                    if _data2 is not None:
-                        for epg in _data2.get("epg", None):
-                            if self._channel_id in epg.get("channelExternalId", None):
-                                schedules = epg.get("schedule", None)
-                                for sch in schedules:
-                                    d = datetime.datetime.utcnow()
-                                    if (
-                                            sch.get("startDate", None)
-                                            <= calendar.timegm(d.utctimetuple())
-                                            <= sch.get("endDate", None)
-                                    ):
-                                        self._show_start_dt = sch.get("startDate", None)
-                                        self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
+                    elif self.country == "poland":
+                        _data2 = await self.rq_epg(self._channel_id)
+                        if _data2 is not None:
+                            for epg in _data2.get("epg", None):
+                                if self._channel_id in epg.get("channelExternalId", None):
+                                    schedules = epg.get("schedule", None)
+                                    for sch in schedules:
+                                        d = datetime.datetime.utcnow()
+                                        if (
+                                                sch.get("startDate", None)
+                                                <= calendar.timegm(d.utctimetuple())
+                                                <= sch.get("endDate", None)
+                                        ):
+                                            self._show_start_dt = sch.get("startDate", None)
+                                            self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
 
-                                        if sch.get("isSeries", False) == True:
-                                            self._media_type = MediaType.VIDEO
-                                            self._show_series_title = sch.get("name", None)
-                                            self._show_episode = sch.get("episodeNumber", None)
-                                            # self._show_title = sch.get("name", None)
-                                        else:
-                                            self._media_type = MediaType.TVSHOW
-                                            self._show_title = sch.get("name", None)
+                                            if sch.get("isSeries", False) == True:
+                                                self._media_type = MediaType.VIDEO
+                                                self._show_series_title = sch.get("name", None)
+                                                self._show_episode = sch.get("episodeNumber", None)
+                                                # self._show_title = sch.get("name", None)
+                                            else:
+                                                self._media_type = MediaType.TVSHOW
+                                                self._show_title = sch.get("name", None)
 
-                                        if sch.get("imagePath", None) != None:
-                                            self._show_img = "https://tvgo.orange.pl{}".format(
-                                                sch.get("imagePath", None)
-                                            )
+                                            if sch.get("imagePath", None) != None:
+                                                self._show_img = "https://tvgo.orange.pl{}".format(
+                                                    sch.get("imagePath", None)
+                                                )
 
-                                        break
+                                            break
 
                                         # update position if we have show information
 
@@ -395,7 +404,24 @@ class LiveboxTvUhdClient(object):
 
     @property
     def show_title(self):
-        return self._show_title
+        titles = []
+        if self._channel_name:
+            titles.append(self._channel_name)
+        if self._media_type == MediaType.VIDEO:
+            if self._show_series_title is not None:
+                titles.append(self._show_series_title)
+            if self._show_season and self._show_season != 0:
+                if self._show_episode and self._show_episode != 0:
+                    titles.append(f"S{str(self._show_season)}E{str(self._show_episode)}")
+                else:
+                    titles.append(f"S{str(self._show_season)}")
+            elif self._show_episode and self._show_episode != 0:
+                titles.append(f"E{str(self._show_episode)}")
+        elif self._show_title:
+            titles.append(self._show_title)
+        if len(titles) > 0:
+            return ' '.join(titles)
+        return None
 
     @property
     def show_definition(self):
