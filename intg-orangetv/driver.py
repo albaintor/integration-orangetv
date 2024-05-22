@@ -236,6 +236,7 @@ async def on_avr_update(device_id: str, update: dict[str, Any] | None) -> None:
             MediaAttr.STATE: device.state,
             MediaAttr.MEDIA_IMAGE_URL: device.show_img,
             MediaAttr.MEDIA_TITLE: device.show_title,
+            MediaAttr.MEDIA_ARTIST: device.channel_episode,
             MediaAttr.SOURCE: device.channel_name,
             MediaAttr.SOURCE_LIST: device.channel_names,
             MediaAttr.MEDIA_POSITION: device.show_position,

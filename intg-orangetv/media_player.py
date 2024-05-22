@@ -58,6 +58,7 @@ class OrangeMediaPlayer(MediaPlayer):
             Attributes.SOURCE_LIST: device.channel_names,
             Attributes.MEDIA_IMAGE_URL: device.show_img if device.show_img else "",
             Attributes.MEDIA_TITLE: device.show_title if device.show_title else "",
+            Attributes.MEDIA_ARTIST: device.channel_episode if device.channel_episode else "",
             Attributes.MEDIA_POSITION: device.show_position,
             Attributes.MEDIA_DURATION: device.show_duration,
             Attributes.MEDIA_TYPE: device.media_type if device.media_type else MediaType.TVSHOW,

@@ -189,6 +189,7 @@ class LiveboxTvUhdClient(object):
         if self._channel_id:
             channel = self.get_channel_from_epg_id(self._channel_id)
             current_title = self.show_title
+            current_episode = self.channel_episode
             current_img = self.show_img
             current_position = self.show_position
             current_duration = self.show_duration
@@ -290,6 +291,10 @@ class LiveboxTvUhdClient(object):
             if current_title != self.show_title:
                 update_data[Attributes.MEDIA_TITLE] = self.show_title
                 update_data[Attributes.MEDIA_TYPE] = self.media_type
+
+            if current_episode != self.channel_episode:
+                update_data[Attributes.MEDIA_ARTIST] = self.channel_episode
+
             if current_img != self.show_img:
                 update_data[Attributes.MEDIA_IMAGE_URL] = self.show_img
                 update_data[Attributes.MEDIA_TYPE] = self.media_type
@@ -334,6 +339,7 @@ class LiveboxTvUhdClient(object):
                         Attributes.SOURCE: "",
                         Attributes.MEDIA_IMAGE_URL: "",
                         Attributes.MEDIA_TITLE: "",
+                        Attributes.MEDIA_ARTIST: "",
                         Attributes.MEDIA_POSITION: 0,
                         Attributes.MEDIA_DURATION: 0,
                         Attributes.MEDIA_TYPE: MediaType.TVSHOW,
@@ -405,22 +411,28 @@ class LiveboxTvUhdClient(object):
     @property
     def show_title(self):
         titles = []
-        if self._channel_name:
-            titles.append(self._channel_name)
-        if self._media_type == MediaType.VIDEO:
-            if self._show_series_title is not None:
-                titles.append(self._show_series_title)
-            if self._show_season and self._show_season != 0:
-                if self._show_episode and self._show_episode != 0:
-                    titles.append(f"S{str(self._show_season)}E{str(self._show_episode)}")
-                else:
-                    titles.append(f"S{str(self._show_season)}")
-            elif self._show_episode and self._show_episode != 0:
-                titles.append(f"E{str(self._show_episode)}")
-        elif self._show_title:
+        if self._show_series_title is not None:
+            titles.append(self._show_series_title)
+        if self._show_title:
             titles.append(self._show_title)
         if len(titles) > 0:
-            return ' '.join(titles)
+            return ' - '.join(titles)
+        return None
+
+    @property
+    def channel_episode(self):
+        titles = []
+        if self._channel_name:
+            titles.append(self._channel_name)
+        if self._show_season and self._show_season != 0:
+            if self._show_episode and self._show_episode != 0:
+                titles.append(f"S{str(self._show_season)}E{str(self._show_episode)}")
+            else:
+                titles.append(f"S{str(self._show_season)}")
+        elif self._show_episode and self._show_episode != 0:
+            titles.append(f"E{str(self._show_episode)}")
+        if len(titles) > 0:
+            return ' - '.join(titles)
         return None
 
     @property
