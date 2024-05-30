@@ -46,7 +46,7 @@ async def device_status_poller(interval: float = 10.0) -> None:
                 # device.update_info()
                 # if not device.is_on:
                 #     continue
-                # TODO #20  run in parallel, join, adjust interval duration based on execution time for next update
+                # TODO : replace "polling updates when remote active" by "polling updates when remote active + device ON" or button press like Kodi integration
                 await device.update()
         except (KeyError, ValueError):
             pass

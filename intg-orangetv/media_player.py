@@ -161,9 +161,11 @@ class OrangeMediaPlayer(MediaPlayer):
         else:
             return StatusCodes.NOT_IMPLEMENTED
 
-        result = res.get("result", None)
-        if result and result.get("responseCode", None) == "0":
-            return StatusCodes.OK
+        if res:
+            result = res.get("result", None)
+            if result and result.get("responseCode", None) == "0":
+                return StatusCodes.OK
+
         return StatusCodes.BAD_REQUEST
 
 
