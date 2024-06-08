@@ -481,6 +481,9 @@ class LiveboxTvUhdClient(object):
         if self.standby_state:
             return await self.press_key(key=KEYS["POWER"])
 
+    async def toggle(self):
+        return await self.press_key(key=KEYS["POWER"])
+
     def __get_key_name(self, key_id):
         for key_name, k_id in KEYS.items():
             if k_id == key_id:

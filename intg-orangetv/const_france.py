@@ -9,6 +9,7 @@ CHANNELS = [
     {"index": "-1", "epg_id": "-1", "name": "N/A"},
     {"index": "1", "epg_id": "192", "name": "TF1"},
     {"index": "2", "epg_id": "4", "name": "FRANCE 2"},
+    # {"index": "902", "epg_id": "4", "name": "FRANCE 2 UHD"}, # Won't work : cannot send index
     {"index": "3", "epg_id": "1939", "name": "FRANCE 3"},
     # {"index": "3", "epg_id": "80", "name": "FRANCE 3"},
     {"index": "4", "epg_id": "34", "name": "CANAL+"},

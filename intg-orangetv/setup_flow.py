@@ -253,9 +253,11 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         try:
             # simple connection check
             device = LiveboxTvUhdClient(address)
+            await device.connect()
             data = await device.rq_livebox(OPERATION_INFORMATION)
             friendly_name = data["result"]["data"]["friendlyName"]
             dropdown_items.append({"id": address, "label": {"en": f"{friendly_name} [{address}]"}})
+            await device.disconnect()
         except Exception as ex:
             _LOG.error("Cannot connect to manually entered address %s: %s", address, ex)
             return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
@@ -340,9 +342,12 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     try:
         # simple connection check
         device = LiveboxTvUhdClient(host, country=country)
+        await device.connect()
         data = await device.rq_livebox(OPERATION_INFORMATION)
+        _LOG.debug("Got data from device %s", data)
         friendly_name = data["result"]["data"]["friendlyName"]
         identifier = data["result"]["data"]["macAddress"]
+        await device.disconnect()
     except Exception as ex:
         _LOG.error("Cannot connect to %s: %s", host, ex)
         return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
