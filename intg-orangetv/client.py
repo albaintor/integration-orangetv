@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 import asyncio
+from functools import wraps
+from typing import Awaitable, Coroutine, Any, Concatenate, Callable, ParamSpec, TypeVar
+
 import aiohttp
 import datetime
 from asyncio import Lock
@@ -41,6 +44,32 @@ class Events(IntEnum):
     UPDATE = 2
     IP_ADDRESS_CHANGED = 3
     DISCONNECTED = 4
+
+
+_OrangeDeviceT = TypeVar("_OrangeDeviceT", bound="LiveboxTvUhdClient")
+_P = ParamSpec("_P")
+
+CONNECTION_RETRIES = 10
+
+
+def cmd_wrapper(
+        func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
+) -> Callable[Concatenate[_OrangeDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | None]]:
+    """Catch command exceptions."""
+
+    @wraps(func)
+    async def wrapper(obj: _OrangeDeviceT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
+        """Wrap all command methods."""
+        res = await func(obj, *args, **kwargs)
+        await obj.start_polling()
+        if res and isinstance(res, dict):
+            result: dict[str, Any] | None = res.get("result", None)
+            if result and result.get("responseCode", None) == "0":
+                return ucapi.StatusCodes.OK
+            return ucapi.StatusCodes.BAD_REQUEST
+        return ucapi.StatusCodes.OK
+
+    return wrapper
 
 
 class LiveboxTvUhdClient(object):
@@ -93,6 +122,8 @@ class LiveboxTvUhdClient(object):
         self._epg_data = None
         self._update_lock = Lock()
         self._session: ClientSession | None = None
+        self._reconnect_retry = 0
+        self._update_task = None
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -108,16 +139,18 @@ class LiveboxTvUhdClient(object):
         if self._session:
             await self._session.close()
             self._session = None
-        session_timeout = aiohttp.ClientTimeout(total=None,sock_connect=self.timeout,sock_read=self.timeout)
+        session_timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout, sock_read=self.timeout)
         self._session = aiohttp.ClientSession(headers={"User-Agent": self.epg_user_agent},
                                               timeout=session_timeout,
                                               raise_for_status=True)
         self.events.emit(Events.CONNECTED, self.id)
+        await self.start_polling()
 
     async def disconnect(self):
         if self._session:
             await self._session.close()
             self._session = None
+        await self.stop_polling()
 
     def _find_epg_entry(self, data, exact_match=False) -> any:
         if data is None:
@@ -144,6 +177,41 @@ class LiveboxTvUhdClient(object):
             return self._epg_data
         self._epg_data = await self.rq_epg(self._channel_id)
         return self._epg_data
+
+    async def _background_update_task(self):
+        self._reconnect_retry = 0
+        while True:
+            if not self.standby_state:
+                self._reconnect_retry += 1
+                if self._reconnect_retry > CONNECTION_RETRIES:
+                    _LOGGER.debug("Stopping update task as the device %s is off", self.id)
+                    break
+                _LOGGER.debug("Device %s is off, retry %s", self.id, self._reconnect_retry)
+            elif self._reconnect_retry > 0:
+                self._reconnect_retry = 0
+                _LOGGER.debug("Device %s is on again", self.id)
+            await self.update()
+            await asyncio.sleep(10)
+
+        self._update_task = None
+
+    async def start_polling(self):
+        if self._update_task is not None:
+            return
+        await self._update_lock.acquire()
+        if self._update_task is not None:
+            return
+        _LOGGER.debug("Start polling task for device %s", self.id)
+        self._update_task = self._event_loop.create_task(self._background_update_task())
+        self._update_lock.release()
+
+    async def stop_polling(self):
+        if self._update_task:
+            try:
+                self._update_task.cancel()
+            except Exception:
+                pass
+            self._update_task = None
 
     async def update(self):
         if self._update_lock.locked():
@@ -464,32 +532,31 @@ class LiveboxTvUhdClient(object):
     def discover():
         pass
 
-    def get_channels(self):
-        return self.channels
-
     async def async_turn_on(self):
         if not self.standby_state:
-            await self.press_key(key=KEYS["POWER"])
+            await self._press_key(key=KEYS["POWER"])
             await asyncio.sleep(2)
-            await self.press_key(key=KEYS["OK"])
+            await self._press_key(key=KEYS["OK"])
 
+    @cmd_wrapper
     async def turn_on(self):
         if not self.standby_state:
             await self.async_turn_on()
 
     async def turn_off(self):
         if self.standby_state:
-            return await self.press_key(key=KEYS["POWER"])
+            return await self._press_key(key=KEYS["POWER"])
 
+    @cmd_wrapper
     async def toggle(self):
-        return await self.press_key(key=KEYS["POWER"])
+        return await self._press_key(key=KEYS["POWER"])
 
     def __get_key_name(self, key_id):
         for key_name, k_id in KEYS.items():
             if k_id == key_id:
                 return key_name
 
-    async def press_key(self, key, mode=0):
+    async def _press_key(self, key, mode=0):
         """
         modes:
             0 -> simple press
@@ -502,33 +569,45 @@ class LiveboxTvUhdClient(object):
         _LOGGER.debug("Press key %s", self.__get_key_name(key))
         return await self.rq_livebox(OPERATION_KEYPRESS, OrderedDict([("key", key), ("mode", mode)]))
 
+    @cmd_wrapper
+    async def press_key(self, key, mode=0):
+        return await self._press_key(key, mode)
+
+    @cmd_wrapper
     async def volume_up(self):
-        return await self.press_key(key=KEYS["VOL+"])
+        return await self._press_key(key=KEYS["VOL+"])
 
+    @cmd_wrapper
     async def volume_down(self):
-        return await self.press_key(key=KEYS["VOL-"])
+        return await self._press_key(key=KEYS["VOL-"])
 
+    @cmd_wrapper
     async def mute(self):
-        return await self.press_key(key=KEYS["MUTE"])
+        return await self._press_key(key=KEYS["MUTE"])
 
+    @cmd_wrapper
     async def channel_up(self):
-        result = await self.press_key(key=KEYS["CH+"])
-        await self._event_loop.create_task(self.update())
+        result = await self._press_key(key=KEYS["CH+"])
+        self._event_loop.create_task(self.update())
         return result
 
+    @cmd_wrapper
     async def channel_down(self):
-        result = await self.press_key(key=KEYS["CH-"])
-        await self._event_loop.create_task(self.update())
+        result = await self._press_key(key=KEYS["CH-"])
+        self._event_loop.create_task(self.update())
         return result
 
+    @cmd_wrapper
     async def play_pause(self):
-        return await self.press_key(key=KEYS["PLAY/PAUSE"])
+        return await self._press_key(key=KEYS["PLAY/PAUSE"])
 
+    @cmd_wrapper
     async def play(self):
         if self.media_state == "PAUSE":
             return await self.play_pause()
         _LOGGER.debug("Media is already playing.")
 
+    @cmd_wrapper
     async def pause(self):
         if self.media_state == "PLAY":
             return await self.play_pause()
@@ -571,6 +650,7 @@ class LiveboxTvUhdClient(object):
         await self._event_loop.create_task(self.update())
         return result
 
+    @cmd_wrapper
     async def set_channel_by_name(self, channel):
         epg_id = self.get_channel_id_from_name(channel)
         return await self.set_channel_by_id(epg_id)

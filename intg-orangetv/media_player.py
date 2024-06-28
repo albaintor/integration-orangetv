@@ -160,13 +160,8 @@ class OrangeMediaPlayer(MediaPlayer):
             res = await self._device.press_key("9")
         else:
             return StatusCodes.NOT_IMPLEMENTED
-
-        if res:
-            result = res.get("result", None)
-            if result and result.get("responseCode", None) == "0":
-                return StatusCodes.OK
-
-        return StatusCodes.BAD_REQUEST
+        _LOG.debug("COMMAND RESULT %s => %s", cmd_id, res)
+        return res
 
 
 def state_from_device(client_state: client.States) -> States:

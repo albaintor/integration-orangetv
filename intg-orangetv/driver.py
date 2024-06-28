@@ -434,7 +434,7 @@ async def main():
             continue
             _LOOP.create_task(device.update())
 
-    _LOOP.create_task(device_status_poller())
+    # _LOOP.create_task(device_status_poller())
 
     IntegrationAPI._broadcast_ws_event = patched_broadcast_ws_event
     await api.init("driver.json", setup_flow.driver_setup_handler)
