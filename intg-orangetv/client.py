@@ -537,6 +537,7 @@ class LiveboxTvUhdClient(object):
             await self._press_key(key=KEYS["POWER"])
             await asyncio.sleep(2)
             await self._press_key(key=KEYS["OK"])
+        await self.start_polling()
 
     @cmd_wrapper
     async def turn_on(self):
