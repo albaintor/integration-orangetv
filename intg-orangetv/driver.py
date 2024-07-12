@@ -57,8 +57,8 @@ async def on_r2_disconnect_cmd():
 
 @api.listens_to(ucapi.Events.ENTER_STANDBY)
 async def on_r2_enter_standby() -> None:
-    """
-    Enter standby notification from Remote Two.
+    """Enter standby notification from Remote Two.
+
     Disconnect every OrangeTV instances.
     """
     global _R2_IN_STANDBY

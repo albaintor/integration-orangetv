@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-This module implements a discovery function for Orange TV.
-
-"""
+"""This module implements a discovery function for Orange TV."""
 
 import asyncio
 import logging
@@ -133,7 +130,6 @@ async def async_send_ssdp_broadcast() -> Set[str]:
 
 async def async_send_ssdp_broadcast_ip(ip_addr: str) -> Set[str]:
     """Send SSDP broadcast messages to a single IP."""
-
     try:
         # Ignore 169.254.0.0/16 addresses
         if ip_addr.startswith("169.254."):

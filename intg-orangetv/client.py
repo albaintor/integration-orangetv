@@ -75,9 +75,12 @@ def cmd_wrapper(
 
 
 class LiveboxTvUhdClient:
-    """Client for Orange TV STBs"""
+    """Client for Orange TV STBs."""
+
     # pylint: disable = E0606
+
     def __init__(self, hostname, port=8080, country="france", timeout=3, refresh_frequency=60, device_id=None):
+        """Create a Orange STB instance."""
         if device_id is None:
             self.id = hostname
         else:
@@ -202,7 +205,7 @@ class LiveboxTvUhdClient:
         self._update_task = None
 
     async def start_polling(self):
-        """Starts polling task."""
+        """Start polling task."""
         if self._update_task is not None:
             return
         await self._update_lock.acquire()
@@ -429,12 +432,12 @@ class LiveboxTvUhdClient:
 
     @property
     def name(self):
-        """Name of device"""
+        """Name of device."""
         return self._name
 
     @property
     def standby_state(self) -> bool:
-        """Returns false if in standby state"""
+        """Returns false if in standby state."""
         return self._standby_state == "0"
 
     @property
@@ -449,12 +452,12 @@ class LiveboxTvUhdClient:
 
     @property
     def media_state(self):
-        """Media state of current media"""
+        """Media state of current media."""
         return self._media_state
 
     @property
     def media_type(self):
-        """Media type of current media"""
+        """Media type of current media."""
         return self._media_type
 
     @property
@@ -469,12 +472,12 @@ class LiveboxTvUhdClient:
 
     @property
     def show_episode(self):
-        """ "Current show episode"""
+        """Current show episode."""
         return self._show_episode
 
     @property
     def wol_support(self) -> bool:
-        """ "Wake on lan support."""
+        """Wake on lan support."""
         return self._wol_support == "0"
 
     @property
@@ -484,7 +487,7 @@ class LiveboxTvUhdClient:
 
     @channel_name.setter
     async def channel_name(self, value):
-        """Sets channel by name."""
+        """Set channel by name."""
         await self.set_channel_by_name(value)
 
     @property
@@ -526,7 +529,7 @@ class LiveboxTvUhdClient:
 
     @property
     def show_definition(self):
-        """Current show definition"""
+        """Current show definition."""
         return self._show_definition
 
     @property
@@ -591,7 +594,8 @@ class LiveboxTvUhdClient:
         return None
 
     async def _press_key(self, key, mode=0):
-        """
+        """Press key with press mode.
+
         modes:
             0 -> simple press
             1 -> long press
@@ -605,7 +609,7 @@ class LiveboxTvUhdClient:
 
     @cmd_wrapper
     async def press_key(self, key, mode=0):
-        """Press a key"""
+        """Press a key."""
         return await self._press_key(key, mode)
 
     @cmd_wrapper
@@ -620,7 +624,7 @@ class LiveboxTvUhdClient:
 
     @cmd_wrapper
     async def mute(self):
-        """Mute"""
+        """Mute."""
         return await self._press_key(key=KEYS["MUTE"])
 
     @cmd_wrapper
@@ -689,7 +693,7 @@ class LiveboxTvUhdClient:
         return res[0] if res else None
 
     async def set_channel_by_id(self, epg_id):
-        """ "Set channel from EPD id."""
+        """Set channel from EPD id."""
         # The EPG ID needs to be 10 chars long, padded with '*' chars
         self._event_loop.call_later(2, self.update)
         epg_id_str = str(epg_id).rjust(10, "*")
@@ -705,7 +709,7 @@ class LiveboxTvUhdClient:
         return await self.set_channel_by_id(epg_id)
 
     async def rq_livebox(self, operation, params=None):
-        """Main HTTP request to the livebox."""
+        """Send HTTP request to the livebox."""
         url = f"http://{self.hostname}:{self.port}/remoteControl/cmd"
         get_params = OrderedDict({"operation": operation})
         _LOGGER.debug("Request Livebox operation %s", operation)

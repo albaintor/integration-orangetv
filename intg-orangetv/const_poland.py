@@ -10,8 +10,8 @@ EPG_URL = "https://tvgo.orange.pl/gpapi/epg/epg"
 EPG_USER_AGENT = "Opera/9.80 (Linux i686; U; fr) Presto/2.10.287 Version/12.00 ; SC/IHD92 STB"
 # pylint: disable = C0301
 # channel list: https://tvgo.orange.pl/gpapi/live/channel-list?hhTech=iptv&deviceCat=otg
-# channel logo: https://tvgo.orange.pl/gpapi/resource/image/L1ZPRC9EMkE1NUMwNUJDMEY4NTAwMDUyMDFDOEI4ODNCQUE1RTg0MjI4OEEyLnBuZw==
-# epg: https://tvgo.orange.pl/gpapi/epg/epg?hhTech=&deviceCat=otg&chosen-day=1642287660
+# channel logo: https://tvgo.orange.pl/gpapi/resource/image/L1ZPRC9EMkE1NUMwNUJDMEY4NTAwMDUyMDFDOEI4ODNCQUE1RTg0MjI4OEEyLnBuZw== # noqa: E501
+# epg: https://tvgo.orange.pl/gpapi/epg/epg?hhTech=&deviceCat=otg&chosen-day=1642287660 # noqa: E501
 # image: https://tvgo.orange.pl/mnapi/epgimages/akpah3154182.jpg
 
 TIMEZONE = "Poland"
