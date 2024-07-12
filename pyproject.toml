@@ -4,8 +4,8 @@ requires = ["setuptools>=61.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "intg-sonyavr"
-version = "0.2.4"
+name = "intg-orangetv"
+version = "1.0.0"
 authors = [
     { name = "Unfolded Circle ApS", email = "hello@unfoldedcircle.com" }
 ]
@@ -22,7 +22,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "pyee>=9.0",
-    "ucapi==0.1.7",
+    "ucapi==0.2.0",
 ]
 
 [project.readme]
