@@ -1,4 +1,4 @@
-pyee>=9.0
+pyee>=11.1.0
 ucapi==0.2.0
 
 logging~=0.4.9.6
