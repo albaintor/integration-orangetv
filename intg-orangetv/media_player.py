@@ -5,7 +5,6 @@ Media-player entity functions.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-import json
 import logging
 from typing import Any
 
@@ -13,7 +12,6 @@ import client
 from client import LiveboxTvUhdClient
 from config import DeviceInstance, create_entity_id
 from const import MEDIA_PLAYER_STATE_MAPPING
-from requests import Response
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
 from ucapi.media_player import (
     Attributes,
@@ -30,6 +28,7 @@ _LOG = logging.getLogger(__name__)
 class OrangeMediaPlayer(MediaPlayer):
     """Representation of a Sony Media Player entity."""
 
+    # pylint: disable=R0915,R0903
     def __init__(self, config_device: DeviceInstance, device: LiveboxTvUhdClient):
         """Initialize the class."""
         self._device = device

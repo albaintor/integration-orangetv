@@ -240,6 +240,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     :param msg: response data from the requested user data
     :return: the setup action on how to continue
     """
+    # pylint: disable=W1405,W0718
     global _setup_step
 
     config.devices.clear()  # triggers device instance removal
@@ -335,6 +336,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete if a valid AVR device was chosen.
     """
+    # pylint: disable=W1405,W0718
     host = msg.input_values["choice"]
     country = msg.input_values["country"]
     _LOG.debug("Chosen Orange: %s. Trying to connect and retrieve device information...", host)

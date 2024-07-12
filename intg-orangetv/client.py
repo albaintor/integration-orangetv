@@ -9,22 +9,19 @@ This module implements the Orange TV communication of the Remote Two integration
 import asyncio
 import calendar
 import datetime
-from datetime import timedelta
 import json
 import logging
-from asyncio import Lock
+from asyncio import CancelledError, Lock
 from collections import OrderedDict
+from datetime import timedelta
 from enum import IntEnum
 from functools import wraps
 from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import aiohttp
-import requests
 import ucapi.media_player
 from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError
 from aiohttp.web_exceptions import HTTPRequestTimeout
-
-# from .const import CHANNELS
 from const import (  # EPG_URL,; EPG_USER_AGENT,
     KEYS,
     MEDIA_PLAYER_STATE_MAPPING,
@@ -79,8 +76,8 @@ def cmd_wrapper(
 
 class LiveboxTvUhdClient:
     """Client for Orange TV STBs"""
-    def __init__(self, hostname, port=8080, country="france", timeout=3, refresh_frequency=60, device_id=None):
 
+    def __init__(self, hostname, port=8080, country="france", timeout=3, refresh_frequency=60, device_id=None):
         if device_id is None:
             self.id = hostname
         else:
@@ -220,12 +217,13 @@ class LiveboxTvUhdClient:
         if self._update_task:
             try:
                 self._update_task.cancel()
-            except Exception:
+            except CancelledError:
                 pass
             self._update_task = None
 
     async def update(self):
         """Update method to refresh data."""
+        # pylint: disable=R0914,R1702,R0915
         if self._update_lock.locked():
             return
 
@@ -296,7 +294,7 @@ class LiveboxTvUhdClient:
                 channel_id = None
                 try:
                     channel_id = int(self._channel_id)
-                except (ValueError, Exception):
+                except ValueError:
                     pass
 
                 if channel_id and channel_id != 0:
@@ -343,7 +341,7 @@ class LiveboxTvUhdClient:
                                             self._show_start_dt = sch.get("startDate", None)
                                             self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
 
-                                            if sch.get("isSeries", False) == True:
+                                            if sch.get("isSeries", False):
                                                 self._media_type = MediaType.VIDEO
                                                 self._show_series_title = sch.get("name", None)
                                                 self._show_episode = sch.get("episodeNumber", None)
@@ -352,11 +350,9 @@ class LiveboxTvUhdClient:
                                                 self._media_type = MediaType.TVSHOW
                                                 self._show_title = sch.get("name", None)
 
-                                            if sch.get("imagePath", None) != None:
-                                                self._show_img = "https://tvgo.orange.pl{}".format(
-                                                    sch.get("imagePath", None)
-                                                )
-
+                                            if sch.get("imagePath", None) is not None:
+                                                image_path = sch.get("imagePath", None)
+                                                self._show_img = f"https://tvgo.orange.pl{image_path}"
                                             break
 
                                         # update position if we have show information
@@ -438,7 +434,7 @@ class LiveboxTvUhdClient:
 
     @property
     def standby_state(self) -> bool:
-        """Returns true if in standby state"""
+        """Returns false if in standby state"""
         return self._standby_state == "0"
 
     @property
@@ -448,42 +444,52 @@ class LiveboxTvUhdClient:
 
     @property
     def osd_context(self):
+        """Get OSD context."""
         return self._osd_context
 
     @property
     def media_state(self):
+        """Media state of current media"""
         return self._media_state
 
     @property
     def media_type(self):
+        """Media type of current media"""
         return self._media_type
 
     @property
     def show_series_title(self):
+        """Current show title."""
         return self._show_series_title
 
     @property
     def show_season(self):
+        """Current show season."""
         return self._show_season
 
     @property
     def show_episode(self):
+        """ "Current show episode"""
         return self._show_episode
 
     @property
-    def wol_support(self):
+    def wol_support(self) -> bool:
+        """ "Wake on lan support."""
         return self._wol_support == "0"
 
     @property
     def channel_name(self):
+        """Current channel name."""
         return self._channel_name
 
     @channel_name.setter
     async def channel_name(self, value):
+        """Sets channel by name."""
         await self.set_channel_by_name(value)
 
     @property
     def channel_names(self):
+        """List of channel names."""
         channel_names = []
         for channel in self.channels:
             channel_names.append(channel.get("name"))
@@ -491,6 +497,7 @@ class LiveboxTvUhdClient:
 
     @property
     def show_title(self):
+        """Current show title."""
         titles = []
         if self._show_series_title is not None:
             titles.append(self._show_series_title)
@@ -502,6 +509,7 @@ class LiveboxTvUhdClient:
 
     @property
     def channel_episode(self):
+        """Current show season and episode."""
         titles = []
         if self._channel_name:
             titles.append(self._channel_name)
@@ -518,34 +526,42 @@ class LiveboxTvUhdClient:
 
     @property
     def show_definition(self):
+        """Current show definition"""
         return self._show_definition
 
     @property
     def show_img(self):
+        """Current show picture."""
         return self._show_img
 
     @property
     def show_start_dt(self):
+        """Current show current time timestamp."""
         return self._show_start_dt
 
     @property
     def show_duration(self):
+        """Current show duration."""
         return self._show_duration
 
     @property
     def show_position(self):
+        """Current show position."""
         return self._show_position
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool:
+        """Device is on."""
         return self.standby_state
 
     # TODO
     @staticmethod
     def discover():
-        pass
+        """Discover available devices."""
+        _LOGGER.warning("Not supported yet")
 
     async def async_turn_on(self):
+        """Turn on the device."""
         if not self.standby_state:
             await self._press_key(key=KEYS["POWER"])
             await asyncio.sleep(2)
@@ -554,21 +570,25 @@ class LiveboxTvUhdClient:
 
     @cmd_wrapper
     async def turn_on(self):
+        """Turn on the device."""
         if not self.standby_state:
             await self.async_turn_on()
 
     async def turn_off(self):
+        """Turn off the device."""
         if self.standby_state:
             return await self._press_key(key=KEYS["POWER"])
 
     @cmd_wrapper
     async def toggle(self):
+        """Toggle on/off the device."""
         return await self._press_key(key=KEYS["POWER"])
 
     def __get_key_name(self, key_id):
         for key_name, k_id in KEYS.items():
             if k_id == key_id:
                 return key_name
+        return None
 
     async def _press_key(self, key, mode=0):
         """
@@ -578,60 +598,71 @@ class LiveboxTvUhdClient:
             2 -> release after long press
         """
         if isinstance(key, str):
-            assert key in KEYS, "No such key: {}".format(key)
+            assert key in KEYS, f"No such key: {key}"
             key = KEYS[key]
         _LOGGER.debug("Press key %s", self.__get_key_name(key))
         return await self.rq_livebox(OPERATION_KEYPRESS, OrderedDict([("key", key), ("mode", mode)]))
 
     @cmd_wrapper
     async def press_key(self, key, mode=0):
+        """Press a key"""
         return await self._press_key(key, mode)
 
     @cmd_wrapper
     async def volume_up(self):
+        """Raise volume up."""
         return await self._press_key(key=KEYS["VOL+"])
 
     @cmd_wrapper
     async def volume_down(self):
+        """Decrease the volume."""
         return await self._press_key(key=KEYS["VOL-"])
 
     @cmd_wrapper
     async def mute(self):
+        """Mute"""
         return await self._press_key(key=KEYS["MUTE"])
 
     @cmd_wrapper
     async def channel_up(self):
+        """Channel up."""
         result = await self._press_key(key=KEYS["CH+"])
         self._event_loop.create_task(self.update())
         return result
 
     @cmd_wrapper
     async def channel_down(self):
+        """Channel down."""
         result = await self._press_key(key=KEYS["CH-"])
         self._event_loop.create_task(self.update())
         return result
 
     @cmd_wrapper
     async def play_pause(self):
+        """Toggle play/pause."""
         return await self._press_key(key=KEYS["PLAY/PAUSE"])
 
     @cmd_wrapper
     async def play(self):
+        """Play."""
         if self.media_state == "PAUSE":
             return await self.play_pause()
         _LOGGER.debug("Media is already playing.")
 
     @cmd_wrapper
     async def pause(self):
+        """Pause."""
         if self.media_state == "PLAY":
             return await self.play_pause()
         _LOGGER.debug("Media is already paused.")
 
     def get_channel_names(self, json_output=False):
+        """Get channel names."""
         channels = [x["name"] for x in self.channels]
         return json.dumps(channels) if json_output else channels
 
     def get_channel_info(self, channel):
+        """Get channel information of given channel."""
         # If the channel start with '#' search by channel number
         channel_index = None
         if channel.startswith("#"):
@@ -649,13 +680,16 @@ class LiveboxTvUhdClient:
         return chan
 
     def get_channel_id_from_name(self, channel):
+        """Get channel id from name."""
         return self.get_channel_info(channel)["epg_id"]
 
     def get_channel_from_epg_id(self, epg_id):
+        """Get channel from EPG id."""
         res = [c for c in self.channels if c["epg_id"] == epg_id]
         return res[0] if res else None
 
     async def set_channel_by_id(self, epg_id):
+        """ "Set channel from EPD id."""
         # The EPG ID needs to be 10 chars long, padded with '*' chars
         self._event_loop.call_later(2, self.update)
         epg_id_str = str(epg_id).rjust(10, "*")
@@ -666,11 +700,13 @@ class LiveboxTvUhdClient:
 
     @cmd_wrapper
     async def set_channel_by_name(self, channel):
+        """Set channel by channel name."""
         epg_id = self.get_channel_id_from_name(channel)
         return await self.set_channel_by_id(epg_id)
 
     async def rq_livebox(self, operation, params=None):
-        url = "http://{}:{}/remoteControl/cmd".format(self.hostname, self.port)
+        """Main HTTP request to the livebox."""
+        url = f"http://{self.hostname}:{self.port}/remoteControl/cmd"
         get_params = OrderedDict({"operation": operation})
         _LOGGER.debug("Request Livebox operation %s", operation)
         if params:
@@ -687,6 +723,7 @@ class LiveboxTvUhdClient:
                 _LOGGER.error(errh)
 
     async def rq_epg(self, channel_id):
+        """Request to EPG by channel ID."""
         get_params = None
         if self.country == "france":
             get_params = OrderedDict({"groupBy": "channel", "period": "current", "epgIds": channel_id, "mco": "OFR"})
@@ -700,4 +737,4 @@ class LiveboxTvUhdClient:
                 return results
         except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             _LOGGER.error("EPG response: %s", errh)
-            pass
+            return None

@@ -156,6 +156,7 @@ async def async_send_ssdp_broadcast_ip(ip_addr: str) -> Set[str]:
         _LOGGER.debug("Got %s results after SSDP queries using ip %s", len(protocol.urls), ip_addr)
 
         return protocol.urls
+    # pylint: disable = W0718
     except Exception:
         return set()
 

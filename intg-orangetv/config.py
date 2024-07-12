@@ -46,6 +46,7 @@ class DeviceInstance:
     country: str
 
     def __init__(self, id, name, address, country="france"):
+        # pylint: disable = W0622
         self.id = id
         self.name = name
         self.address = address

@@ -35,23 +35,6 @@ _configured_devices: dict[str, LiveboxTvUhdClient] = {}
 _R2_IN_STANDBY = False
 
 
-async def device_status_poller(interval: float = 10.0) -> None:
-    """Receiver data poller."""
-    while True:
-        await asyncio.sleep(interval)
-        if _R2_IN_STANDBY:
-            continue
-        try:
-            for device in _configured_devices.values():
-                # device.update_info()
-                # if not device.is_on:
-                #     continue
-                # TODO : replace "polling updates when remote active" by "polling updates when remote active + device ON" or button press like Kodi integration
-                await device.update()
-        except (KeyError, ValueError):
-            pass
-
-
 @api.listens_to(ucapi.Events.CONNECT)
 async def on_r2_connect_cmd() -> None:
     """Connect all configured receivers when the Remote Two sends the connect command."""
@@ -397,6 +380,7 @@ async def patched_broadcast_ws_event(self, msg: str, msg_data: dict[str, Any], c
     if _LOG.isEnabledFor(logging.DEBUG):
         data_log = json.dumps(data) if filter_log_msg_data(data) else data_dump
 
+    # pylint: disable=W0212
     for websocket in self._clients.copy():
         if _LOG.isEnabledFor(logging.DEBUG):
             _LOG.debug("[%s] ->: %s", websocket.remote_address, data_log)
@@ -424,14 +408,13 @@ async def main():
         _LOG.debug("UC Orange device %s %s", device.id, device.address)
         _configure_new_device(device, connect=False)
 
-    # _LOOP.create_task(receiver_status_poller())
     for device in _configured_devices.values():
         if not device.is_on:
             continue
-            _LOOP.create_task(device.update())
+        _LOOP.create_task(device.update())
 
-    # _LOOP.create_task(device_status_poller())
-
+    # TODO to remove once integration will be uploaded to remote
+    # pylint: disable=W0212
     IntegrationAPI._broadcast_ws_event = patched_broadcast_ws_event
     await api.init("driver.json", setup_flow.driver_setup_handler)
 

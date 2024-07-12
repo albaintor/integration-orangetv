@@ -1,3 +1,10 @@
+"""
+Static file of the integration driver.
+
+:copyright: (c) 2024 by Unfolded Circle ApS.
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
+"""
+
 from datetime import timedelta
 
 __version__ = "1.0.4"
@@ -7,20 +14,18 @@ from enum import IntEnum
 import ucapi
 
 PROJECT_URL = "https://github.com/AkA57/liveboxtvuhd/"
-ISSUE_URL = "{}issues".format(PROJECT_URL)
+ISSUE_URL = f"{PROJECT_URL}issues"
 
 NAME = "liveboxtvuhd"
-STARTUP = """
+STARTUP = f"""
 -------------------------------------------------------------------
-{}
-Version: {}
+{NAME}
+Version: {__version__}
 This is a custom integration.
 If you have any issues with this you need to open an issue here:
-{}
+{ISSUE_URL}
 -------------------------------------------------------------------
-""".format(
-    NAME, __version__, ISSUE_URL
-)
+"""
 
 
 class States(IntEnum):

@@ -1,3 +1,10 @@
+"""
+Static file of the integration driver for France STB.
+
+:copyright: (c) 2024 by Unfolded Circle ApS.
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
+"""
+
 # EPG
 EPG_URL = "https://rp-ott-mediation-tv.woopic.com/api-gw/live/v3/applications/STB4PC/programs"
 EPG_USER_AGENT = "Opera/9.80 (Linux i686; U; fr) Presto/2.10.287 Version/12.00 ; SC/IHD92 STB"
