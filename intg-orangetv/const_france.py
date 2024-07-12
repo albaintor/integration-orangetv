@@ -2,7 +2,7 @@
 EPG_URL = "https://rp-ott-mediation-tv.woopic.com/api-gw/live/v3/applications/STB4PC/programs"
 EPG_USER_AGENT = "Opera/9.80 (Linux i686; U; fr) Presto/2.10.287 Version/12.00 ; SC/IHD92 STB"
 
-TIMEZONE="Europe/Paris"
+TIMEZONE = "Europe/Paris"
 
 # channels
 CHANNELS = [
@@ -195,7 +195,7 @@ CHANNELS = [
     {"index": "322", "epg_id": "639", "name": "FRANCE 3 POITOU CHARENTES"},
     {"index": "323", "epg_id": "643", "name": "FRANCE 3 PACA"},
     {"index": "324", "epg_id": "648", "name": "FRANCE 3 RHONES ALPES"},
-    {"index": "325", "epg_id": "80",  "name": "FRANCE 3 SD"},
+    {"index": "325", "epg_id": "80", "name": "FRANCE 3 SD"},
     {"index": "401", "epg_id": "2293", "name": "A+ KIDS"},
     {"index": "403", "epg_id": "185", "name": "TCM CINEMA VO"},
     {"index": "407", "epg_id": "321", "name": "BOOMERANG (VO)"},

@@ -9,15 +9,20 @@ import json
 import logging
 from typing import Any
 
-from requests import Response
-
 import client
 from client import LiveboxTvUhdClient
 from config import DeviceInstance, create_entity_id
-from ucapi import EntityTypes, MediaPlayer, StatusCodes
-from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, States, MediaType
-
 from const import MEDIA_PLAYER_STATE_MAPPING
+from requests import Response
+from ucapi import EntityTypes, MediaPlayer, StatusCodes
+from ucapi.media_player import (
+    Attributes,
+    Commands,
+    DeviceClasses,
+    Features,
+    MediaType,
+    States,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -50,7 +55,7 @@ class OrangeMediaPlayer(MediaPlayer):
             Features.NUMPAD,
             Features.CHANNEL_SWITCHER,
             Features.MEDIA_POSITION,
-            Features.MEDIA_DURATION
+            Features.MEDIA_DURATION,
         ]
         attributes = {
             Attributes.STATE: state_from_device(device.state),
@@ -143,7 +148,7 @@ class OrangeMediaPlayer(MediaPlayer):
         elif cmd_id == Commands.DIGIT_1:
             res = await self._device.press_key("1")
         elif cmd_id == Commands.DIGIT_2:
-            res =await  self._device.press_key("2")
+            res = await self._device.press_key("2")
         elif cmd_id == Commands.DIGIT_3:
             res = await self._device.press_key("3")
         elif cmd_id == Commands.DIGIT_4:

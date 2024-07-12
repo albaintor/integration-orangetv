@@ -1,37 +1,42 @@
 #!/usr/bin/env python
 # coding: utf-8
-import asyncio
-from functools import wraps
-from typing import Awaitable, Coroutine, Any, Concatenate, Callable, ParamSpec, TypeVar
+"""
+This module implements the Orange TV communication of the Remote Two integration driver.
 
-import aiohttp
+:copyright: (c) 2023-2024 by Unfolded Circle ApS.
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
+"""
+import asyncio
+import calendar
 import datetime
-from asyncio import Lock
-from collections import OrderedDict
+from datetime import timedelta
 import json
 import logging
+from asyncio import Lock
+from collections import OrderedDict
 from enum import IntEnum
+from functools import wraps
+from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
+import aiohttp
 import requests
-import calendar
-
 import ucapi.media_player
-from aiohttp import ClientSession, ServerTimeoutError, ClientConnectionError
+from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError
 from aiohttp.web_exceptions import HTTPRequestTimeout
+
+# from .const import CHANNELS
+from const import (  # EPG_URL,; EPG_USER_AGENT,
+    KEYS,
+    MEDIA_PLAYER_STATE_MAPPING,
+    OPERATION_CHANNEL_CHANGE,
+    OPERATION_INFORMATION,
+    OPERATION_KEYPRESS,
+    States,
+)
 from dateutil.tz import tz
 from fuzzywuzzy import process
 from pyee import AsyncIOEventEmitter
-from ucapi.media_player import MediaType, Attributes
-
-# from .const import CHANNELS
-from const import KEYS, States, MEDIA_PLAYER_STATE_MAPPING
-from const import (
-    OPERATION_INFORMATION,
-    OPERATION_CHANNEL_CHANGE,
-    OPERATION_KEYPRESS,
-    # EPG_URL,
-    # EPG_USER_AGENT,
-)
+from ucapi.media_player import Attributes, MediaType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,7 +58,7 @@ CONNECTION_RETRIES = 10
 
 
 def cmd_wrapper(
-        func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
+    func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
 ) -> Callable[Concatenate[_OrangeDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | None]]:
     """Catch command exceptions."""
 
@@ -72,9 +77,9 @@ def cmd_wrapper(
     return wrapper
 
 
-class LiveboxTvUhdClient(object):
+class LiveboxTvUhdClient:
+    """Client for Orange TV STBs"""
     def __init__(self, hostname, port=8080, country="france", timeout=3, refresh_frequency=60, device_id=None):
-        from datetime import timedelta
 
         if device_id is None:
             self.id = hostname
@@ -85,8 +90,10 @@ class LiveboxTvUhdClient(object):
         self.country = country
         # import const for country
         if self.country == "france":
+            # pylint: disable = C0415
             from const_france import CHANNELS, EPG_URL, EPG_USER_AGENT, TIMEZONE
         elif self.country == "poland":
+            # pylint: disable = C0415
             from const_poland import CHANNELS, EPG_URL, EPG_USER_AGENT, TIMEZONE
         self.channels = CHANNELS
         self.epg_url = EPG_URL
@@ -136,17 +143,19 @@ class LiveboxTvUhdClient(object):
             self._state = States.ON if self.is_on else States.OFF
 
     async def connect(self):
+        """Connect to SDB."""
         if self._session:
             await self._session.close()
             self._session = None
         session_timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout, sock_read=self.timeout)
-        self._session = aiohttp.ClientSession(headers={"User-Agent": self.epg_user_agent},
-                                              timeout=session_timeout,
-                                              raise_for_status=True)
+        self._session = aiohttp.ClientSession(
+            headers={"User-Agent": self.epg_user_agent}, timeout=session_timeout, raise_for_status=True
+        )
         self.events.emit(Events.CONNECTED, self.id)
         await self.start_polling()
 
     async def disconnect(self):
+        """Disconnect from STB."""
         if self._session:
             await self._session.close()
             self._session = None
@@ -196,6 +205,7 @@ class LiveboxTvUhdClient(object):
         self._update_task = None
 
     async def start_polling(self):
+        """Starts polling task."""
         if self._update_task is not None:
             return
         await self._update_lock.acquire()
@@ -206,6 +216,7 @@ class LiveboxTvUhdClient(object):
         self._update_lock.release()
 
     async def stop_polling(self):
+        """Stop polling task."""
         if self._update_task:
             try:
                 self._update_task.cancel()
@@ -214,6 +225,7 @@ class LiveboxTvUhdClient(object):
             self._update_task = None
 
     async def update(self):
+        """Update method to refresh data."""
         if self._update_lock.locked():
             return
 
@@ -324,9 +336,9 @@ class LiveboxTvUhdClient(object):
                                     for sch in schedules:
                                         d = datetime.datetime.utcnow()
                                         if (
-                                                sch.get("startDate", None)
-                                                <= calendar.timegm(d.utctimetuple())
-                                                <= sch.get("endDate", None)
+                                            sch.get("startDate", None)
+                                            <= calendar.timegm(d.utctimetuple())
+                                            <= sch.get("endDate", None)
                                         ):
                                             self._show_start_dt = sch.get("startDate", None)
                                             self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
@@ -354,8 +366,9 @@ class LiveboxTvUhdClient(object):
                 self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
 
             if current_state != self.state:
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state,
-                                                                               ucapi.media_player.States.UNKNOWN)
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(
+                    self.state, ucapi.media_player.States.UNKNOWN
+                )
             if current_title != self.show_title:
                 update_data[Attributes.MEDIA_TITLE] = self.show_title
                 update_data[Attributes.MEDIA_TYPE] = self.media_type
@@ -374,12 +387,7 @@ class LiveboxTvUhdClient(object):
                 update_data[Attributes.SOURCE] = self.channel_name
 
             if update_data:
-                self.events.emit(
-                    Events.UPDATE,
-                    self.id,
-                    update_data
-                )
-
+                self.events.emit(Events.UPDATE, self.id, update_data)
 
         else:
             # Unknow or no channel displayed. Should be HOMEPAGE, NETFLIX, WHATEVER...
@@ -398,8 +406,9 @@ class LiveboxTvUhdClient(object):
             self._show_duration = 0
             self._show_position = 0
             if current_state != self.state:
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(self.state,
-                                                                               ucapi.media_player.States.UNKNOWN)
+                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(
+                    self.state, ucapi.media_player.States.UNKNOWN
+                )
                 self.events.emit(
                     Events.UPDATE,
                     self.id,
@@ -419,18 +428,22 @@ class LiveboxTvUhdClient(object):
 
     @property
     def state(self):
+        """State of device."""
         return self._state
 
     @property
     def name(self):
+        """Name of device"""
         return self._name
 
     @property
-    def standby_state(self):
+    def standby_state(self) -> bool:
+        """Returns true if in standby state"""
         return self._standby_state == "0"
 
     @property
     def channel_id(self):
+        """Current channel id."""
         return self._channel_id
 
     @property
@@ -484,7 +497,7 @@ class LiveboxTvUhdClient(object):
         if self._show_title:
             titles.append(self._show_title)
         if len(titles) > 0:
-            return ' - '.join(titles)
+            return " - ".join(titles)
         return None
 
     @property
@@ -500,7 +513,7 @@ class LiveboxTvUhdClient(object):
         elif self._show_episode and self._show_episode != 0:
             titles.append(f"E{str(self._show_episode)}")
         if len(titles) > 0:
-            return ' - '.join(titles)
+            return " - ".join(titles)
         return None
 
     @property

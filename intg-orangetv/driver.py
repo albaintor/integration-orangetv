@@ -12,19 +12,18 @@ import logging
 import os
 from typing import Any
 
-import ucapi
-import ucapi.api_definitions as uc
-import websockets
-from ucapi.api import filter_log_msg_data, IntegrationAPI
-from ucapi.media_player import Attributes as MediaAttr
-
 import client
 import config
 import media_player
 import remote
 import setup_flow
+import ucapi
+import ucapi.api_definitions as uc
+import websockets
 from client import LiveboxTvUhdClient
 from config import device_from_entity_id
+from ucapi.api import IntegrationAPI, filter_log_msg_data
+from ucapi.media_player import Attributes as MediaAttr
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 _LOOP = asyncio.get_event_loop()
@@ -122,15 +121,13 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         if device_id in _configured_devices:
             device = _configured_devices[device_id]
             if isinstance(entity, media_player.OrangeMediaPlayer):
-                api.configured_entities.update_attributes(entity_id,
-                                                          {
-                                                              ucapi.media_player.Attributes.STATE: media_player.state_from_device(
-                                                                  device.state)})
+                api.configured_entities.update_attributes(
+                    entity_id, {ucapi.media_player.Attributes.STATE: media_player.state_from_device(device.state)}
+                )
             if isinstance(entity, remote.OrangeRemote):
-                api.configured_entities.update_attributes(entity_id,
-                                                          {
-                                                              ucapi.remote.Attributes.STATE: remote.REMOTE_STATE_MAPPING.get(
-                                                                  device.state)})
+                api.configured_entities.update_attributes(
+                    entity_id, {ucapi.remote.Attributes.STATE: remote.REMOTE_STATE_MAPPING.get(device.state)}
+                )
             continue
 
         device = config.devices.get(device_id)
@@ -153,7 +150,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 
     # Keep devices that are used by other configured entities not in this list
     for entity in api.configured_entities.get_all():
-        entity_id = entity.get('entity_id')
+        entity_id = entity.get("entity_id")
         if entity_id in entity_ids:
             continue
         device_id = device_from_entity_id(entity_id)
@@ -185,14 +182,15 @@ async def on_device_connected(device_id: str):
             continue
 
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
-            if (configured_entity.attributes[ucapi.media_player.Attributes.STATE]
-                    == ucapi.media_player.States.UNAVAILABLE):
+            if (
+                configured_entity.attributes[ucapi.media_player.Attributes.STATE]
+                == ucapi.media_player.States.UNAVAILABLE
+            ):
                 api.configured_entities.update_attributes(
                     entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
                 )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
-            if (configured_entity.attributes[ucapi.remote.Attributes.STATE]
-                    == ucapi.remote.States.UNAVAILABLE):
+            if configured_entity.attributes[ucapi.remote.Attributes.STATE] == ucapi.remote.States.UNAVAILABLE:
                 api.configured_entities.update_attributes(
                     entity_id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.OFF}
                 )
@@ -343,8 +341,7 @@ def _register_available_entities(config_device: config.DeviceInstance, device: L
     """
     # plain and simple for now: only one media_player per AVR device
     # entity = media_player.create_entity(device)
-    entities = [media_player.OrangeMediaPlayer(config_device, device),
-                remote.OrangeRemote(config_device, device)]
+    entities = [media_player.OrangeMediaPlayer(config_device, device), remote.OrangeRemote(config_device, device)]
     for entity in entities:
         if api.available_entities.contains(entity.id):
             api.available_entities.remove(entity.id)
@@ -382,9 +379,7 @@ async def _async_remove(device: LiveboxTvUhdClient) -> None:
     device.events.remove_all_listeners()
 
 
-async def patched_broadcast_ws_event(
-        self, msg: str, msg_data: dict[str, Any], category: uc.EventCategory
-) -> None:
+async def patched_broadcast_ws_event(self, msg: str, msg_data: dict[str, Any], category: uc.EventCategory) -> None:
     """
     Send the given event-message to all connected WebSocket clients.
 
@@ -409,6 +404,7 @@ async def patched_broadcast_ws_event(
             await websocket.send(data_dump)
         except websockets.exceptions.WebSocketException:
             pass
+
 
 async def main():
     """Start the Remote Two integration driver."""

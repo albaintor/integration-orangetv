@@ -13,6 +13,7 @@ import config
 import discover
 from client import LiveboxTvUhdClient
 from config import DeviceInstance
+from const import OPERATION_INFORMATION
 from ucapi import (
     AbortDriverSetup,
     DriverSetupRequest,
@@ -24,8 +25,6 @@ from ucapi import (
     SetupError,
     UserDataResponse,
 )
-
-from const import OPERATION_INFORMATION
 
 _LOG = logging.getLogger(__name__)
 

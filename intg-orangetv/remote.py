@@ -10,9 +10,10 @@ from typing import Any
 
 import client
 from config import DeviceInstance, create_entity_id
+from const import KEYS, States
 from ucapi import EntityTypes, Remote, StatusCodes
-from ucapi.remote import Attributes, Commands, States as RemoteStates, Options, Features
-from const import States, KEYS
+from ucapi.remote import Attributes, Commands, Features, Options
+from ucapi.remote import States as RemoteStates
 
 _LOG = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ REMOTE_STATE_MAPPING = {
     States.OFF: RemoteStates.OFF,
     States.ON: RemoteStates.ON,
     States.PLAYING: RemoteStates.ON,
-    States.PAUSED: RemoteStates.ON
+    States.PAUSED: RemoteStates.ON,
 }
 
 
@@ -96,7 +97,7 @@ class OrangeRemote(Remote):
         elif cmd_id == Commands.SEND_CMD:
             return await self._device.press_key(command)
         elif cmd_id == Commands.SEND_CMD_SEQUENCE:
-            commands = params.get("sequence", [])#.split(",")
+            commands = params.get("sequence", [])  # .split(",")
             res = StatusCodes.OK
             for command in commands:
                 res = await self.handle_command(Commands.SEND_CMD, {"command": command, "params": params})

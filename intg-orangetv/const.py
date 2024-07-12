@@ -22,6 +22,7 @@ If you have any issues with this you need to open an issue here:
     NAME, __version__, ISSUE_URL
 )
 
+
 class States(IntEnum):
     """State of a connected devoce."""
 
@@ -31,6 +32,7 @@ class States(IntEnum):
     ON = 3
     PLAYING = 4
     PAUSED = 5
+
 
 # Mapping of a device state to a media-player entity state
 MEDIA_PLAYER_STATE_MAPPING: dict[States, ucapi.media_player.States] = {
