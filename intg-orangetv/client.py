@@ -76,7 +76,7 @@ def cmd_wrapper(
 
 class LiveboxTvUhdClient:
     """Client for Orange TV STBs"""
-
+    # pylint: disable = E0606
     def __init__(self, hostname, port=8080, country="france", timeout=3, refresh_frequency=60, device_id=None):
         if device_id is None:
             self.id = hostname
