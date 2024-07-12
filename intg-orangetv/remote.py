@@ -4,6 +4,7 @@ Remote entity functions.
 :copyright: (c) 2024 by Unfolded Circle ApS.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
+
 import asyncio
 import logging
 from typing import Any
