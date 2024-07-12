@@ -49,4 +49,4 @@ jobs:
           python -m isort intg-orangetv/. --check --verbose
       - name: Check code formatting with black
         run: |
-          python -m black intg-orangetv --check --verbose --line-length 120
+          python -m black intg-orangetv --check --diff --verbose --line-length 120
