@@ -30,7 +30,7 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
     OPERATION_KEYPRESS,
     States,
 )
-from dateutil.tz import tz
+from dateutil import tz
 from fuzzywuzzy import process
 from pyee import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, MediaType
