@@ -301,7 +301,7 @@ def _configure_new_device(device_config: config.DeviceInstance, connect: bool = 
     else:
         if device_config.country is None:
             device_config.country = "france"
-        device = LiveboxTvUhdClient(device_config.address, device_id=device_config.id, country=device_config.country)
+        device = LiveboxTvUhdClient(device_config)
 
         device.events.on(client.Events.CONNECTED, on_device_connected)
         device.events.on(client.Events.ERROR, on_avr_connection_error)

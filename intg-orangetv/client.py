@@ -13,6 +13,7 @@ import json
 import logging
 from asyncio import CancelledError, Lock
 from collections import OrderedDict
+from config import DeviceInstance
 from datetime import timedelta
 from enum import IntEnum
 from functools import wraps
@@ -79,15 +80,16 @@ class LiveboxTvUhdClient:
 
     # pylint: disable = E0606
 
-    def __init__(self, hostname, port=8080, country="france", timeout=3, refresh_frequency=60, device_id=None):
+    def __init__(self, device_config: DeviceInstance, timeout=3, refresh_frequency=60, device_id=None):
         """Create a Orange STB instance."""
         if device_id is None:
-            self.id = hostname
+            self.id = device_config.address
         else:
             self.id = device_id
-        self.hostname = hostname
-        self.port = port
-        self.country = country
+        self.hostname = device_config.address
+        self.port = device_config.port
+        self.country = device_config.country
+        self._device_config = device_config
         # import const for country
         if self.country == "france":
             # pylint: disable = C0415
@@ -190,18 +192,18 @@ class LiveboxTvUhdClient:
     async def _background_update_task(self):
         self._reconnect_retry = 0
         while True:
-            if not self.standby_state:
-                self._reconnect_retry += 1
-                if self._reconnect_retry > CONNECTION_RETRIES:
-                    _LOGGER.debug("Stopping update task as the device %s is off", self.id)
-                    break
-                _LOGGER.debug("Device %s is off, retry %s", self.id, self._reconnect_retry)
-            elif self._reconnect_retry > 0:
-                self._reconnect_retry = 0
-                _LOGGER.debug("Device %s is on again", self.id)
+            if not self._device_config.always_on:
+                if not self.standby_state:
+                    self._reconnect_retry += 1
+                    if self._reconnect_retry > CONNECTION_RETRIES:
+                        _LOGGER.debug("Stopping update task as the device %s is off", self.id)
+                        break
+                    _LOGGER.debug("Device %s is off, retry %s", self.id, self._reconnect_retry)
+                elif self._reconnect_retry > 0:
+                    self._reconnect_retry = 0
+                    _LOGGER.debug("Device %s is on again", self.id)
             await self.update()
             await asyncio.sleep(10)
-
         self._update_task = None
 
     async def start_polling(self):
