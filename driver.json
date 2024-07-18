@@ -11,7 +11,7 @@
     "de": "Steuere Orange TV mit Remote Two.",
     "fr": "Contrôler votre Orange TV avec Remote Two."
   },
-  "port": 8092,
+  "port": 9093,
   "developer": {
     "name": "Unfolded Circle ApS",
     "email": "hello@unfoldedcircle.com",
