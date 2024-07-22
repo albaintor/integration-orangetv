@@ -1,6 +1,6 @@
 {
   "driver_id": "uc_orangetv_driver",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "min_core_api": "0.20.0",
   "name": {
     "en": "Orange TV"
@@ -11,8 +11,6 @@
     "de": "Steuere Orange TV mit Remote Two.",
     "fr": "Contrôler votre Orange TV avec Remote Two."
   },
-  "port": 9093,
-  "device_discovery": true,
   "developer": {
     "name": "Unfolded Circle ApS",
     "email": "hello@unfoldedcircle.com",
@@ -45,5 +43,5 @@
       }
     ]
   },
-  "release_date": "2024-03-16"
+  "release_date": "2024-07-22"
 }
