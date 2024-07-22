@@ -13,7 +13,6 @@ import json
 import logging
 from asyncio import CancelledError, Lock
 from collections import OrderedDict
-from config import DeviceInstance
 from datetime import timedelta
 from enum import IntEnum
 from functools import wraps
@@ -23,6 +22,7 @@ import aiohttp
 import ucapi.media_player
 from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError
 from aiohttp.web_exceptions import HTTPRequestTimeout
+from config import DeviceInstance
 from const import (  # EPG_URL,; EPG_USER_AGENT,
     KEYS,
     MEDIA_PLAYER_STATE_MAPPING,
