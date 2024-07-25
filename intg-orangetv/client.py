@@ -150,8 +150,9 @@ class LiveboxTvUhdClient:
             await self._session.close()
             self._session = None
         session_timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout, sock_read=self.timeout)
-        self._session = aiohttp.ClientSession(
-            headers={"User-Agent": self.epg_user_agent}, timeout=session_timeout, raise_for_status=True, trust_env=True
+        connector = aiohttp.TCPConnector(ssl=False)
+        self._session = aiohttp.ClientSession(connector=connector,headers={"User-Agent": self.epg_user_agent},
+                                              timeout=session_timeout, raise_for_status=True, trust_env=True
         )
         self.events.emit(Events.CONNECTED, self.id)
         await self.start_polling()
@@ -733,7 +734,7 @@ class LiveboxTvUhdClient:
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
         _LOGGER.debug("Request EPG channel id %s", channel_id)
         try:
-            async with self._session.get(self.epg_url, params=get_params, ssl=False) as r:
+            async with self._session.get(self.epg_url, params=get_params) as r:
                 results = await r.json()
                 _LOGGER.debug("EPG response: %s", results)
                 return results
