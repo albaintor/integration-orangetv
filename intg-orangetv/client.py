@@ -733,7 +733,7 @@ class LiveboxTvUhdClient:
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
         _LOGGER.debug("Request EPG channel id %s", channel_id)
         try:
-            async with self._session.get(self.epg_url, params=get_params) as r:
+            async with self._session.get(self.epg_url, params=get_params, ssl=False) as r:
                 results = await r.json()
                 _LOGGER.debug("EPG response: %s", results)
                 return results
