@@ -7,6 +7,7 @@ Setup flow for Orange integration.
 
 import asyncio
 import logging
+from urllib.parse import urlparse
 from enum import IntEnum
 
 import config
@@ -252,7 +253,12 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         _LOG.debug("Starting manual driver setup for %s", address)
         try:
             # simple connection check
-            device = LiveboxTvUhdClient(address)
+            result = urlparse('//' + address)
+            port = 8080
+            if result.port:
+                port = result.port
+            device = LiveboxTvUhdClient(DeviceInstance(id="Orange", name="Orange", address=result.hostname,
+                                                       country="france", always_on=False, port=port))
             await device.connect()
             data = await device.rq_livebox(OPERATION_INFORMATION)
             friendly_name = data["result"]["data"]["friendlyName"]
@@ -356,10 +362,16 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     """
     # pylint: disable=W1405,W0718
     host = msg.input_values["choice"]
-    try:
-        port = int(msg.input_values.get("port", 8080))
-    except ValueError:
-        return SetupError(error_type=IntegrationSetupError.OTHER)
+    result = urlparse('//' + host)
+    host = result.hostname
+    port = 8080
+    if result.port:
+        port = result.port
+    else:
+        try:
+            port = int(msg.input_values.get("port", 8080))
+        except ValueError:
+            return SetupError(error_type=IntegrationSetupError.OTHER)
     country = msg.input_values.get("country", "france")
     always_on = msg.input_values.get("always_on") == "true"
     _LOG.debug("Chosen Orange: %s. Trying to connect and retrieve device information...", host)
