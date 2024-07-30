@@ -11,7 +11,7 @@ import calendar
 import datetime
 import json
 import logging
-import socket
+import ssl
 from asyncio import CancelledError, Lock
 from collections import OrderedDict
 from datetime import timedelta
@@ -20,6 +20,7 @@ from functools import wraps
 from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import aiohttp
+import certifi
 import ucapi.media_player
 from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError
 from aiohttp.web_exceptions import HTTPRequestTimeout
@@ -134,7 +135,7 @@ class LiveboxTvUhdClient:
         self._session: ClientSession | None = None
         self._reconnect_retry = 0
         self._update_task = None
-        self._no_dns_resolve = False
+        self._sslcontext = ssl.create_default_context(cafile=certifi.where())
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -151,13 +152,6 @@ class LiveboxTvUhdClient:
         if self._session:
             await self._session.close()
             self._session = None
-        self._no_dns_resolve = False
-        try:
-            socket.gethostbyname(self.epg_url)
-        except Exception as ex:
-            _LOGGER.error("Can't resolve hostname %s, will use hardcoded IP instead", self.epg_url)
-            self._no_dns_resolve = True
-            pass
         session_timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout, sock_read=self.timeout)
         # connector = aiohttp.TCPConnector(ssl=False)
         self._session = aiohttp.ClientSession(headers={"User-Agent": self.epg_user_agent},
@@ -743,19 +737,10 @@ class LiveboxTvUhdClient:
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
         _LOGGER.debug("Request EPG channel id %s", channel_id)
         try:
-            # TODO : workaround bug with dns resolution with https on host
-            if self._no_dns_resolve:
-                headers = {"Host": "rp-ott-mediation-tv.woopic.com"}
-                url = "https://193.251.237.52/api-gw/live/v3/applications/STB4PC/programs"
-                async with self._session.get(url, params=get_params, headers=headers, ssl=False) as r:
-                    results = await r.json()
-                    _LOGGER.debug("EPG response: %s", results)
-                    return results
-            else:
-                async with self._session.get(self.epg_url, params=get_params) as r:
-                    results = await r.json()
-                    _LOGGER.debug("EPG response: %s", results)
-                    return results
+            async with self._session.get(self.epg_url, params=get_params, ssl=self._sslcontext) as r:
+                results = await r.json()
+                _LOGGER.debug("EPG response: %s", results)
+                return results
         except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             # _LOGGER.error("EPG response: %s", errh)
             _LOGGER.exception("EPG response: %s", errh, exc_info=True, stacklevel=50)

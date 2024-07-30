@@ -1,6 +1,6 @@
 {
-  "driver_id": "uc_orangetv_driver",
-  "version": "1.0.5",
+  "driver_id": "orangetv_driver",
+  "version": "1.0.6",
   "min_core_api": "0.20.0",
   "name": {
     "en": "Orange TV"
@@ -11,12 +11,12 @@
     "de": "Steuere Orange TV mit Remote Two.",
     "fr": "Contrôler votre Orange TV avec Remote Two."
   },
-  "developer": {
-    "name": "Unfolded Circle ApS",
-    "email": "hello@unfoldedcircle.com",
-    "url": "https://www.unfoldedcircle.com"
+ "developer": {
+    "name": "Albaintor",
+    "email": "albaintor@github.com",
+    "url": "https://github.com/albaintor"
   },
-  "home_page": "https://www.unfoldedcircle.com",
+  "home_page": "https://github.com/albaintor/integration-orangetv",
   "setup_data_schema": {
     "title": {
       "en": "Integration setup",
