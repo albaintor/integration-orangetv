@@ -116,6 +116,10 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
 
     reconfigure = _msg.reconfigure
     _LOG.debug("Starting driver setup, reconfigure=%s", reconfigure)
+
+    # workaround for web-configurator not picking up first response
+    await asyncio.sleep(1)
+
     if reconfigure:
         _setup_step = SetupSteps.CONFIGURATION_MODE
 
@@ -244,7 +248,6 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     # pylint: disable=W1405,W0718
     global _setup_step
 
-    config.devices.clear()  # triggers device instance removal
 
     dropdown_items = []
     address = msg.input_values["address"]

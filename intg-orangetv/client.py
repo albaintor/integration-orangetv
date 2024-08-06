@@ -209,6 +209,7 @@ class LiveboxTvUhdClient:
             await self.update()
             await asyncio.sleep(10)
         self._update_task = None
+        await self.disconnect()
 
     async def start_polling(self):
         """Start polling task."""
