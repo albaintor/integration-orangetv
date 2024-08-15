@@ -53,7 +53,7 @@ For running a separate integration driver on your network for Remote Two, the co
 ### Run
 
 ```shell
-python3 intg-sonyavr/driver.py
+python3 intg-orangetv/driver.py
 ```
 
 See
