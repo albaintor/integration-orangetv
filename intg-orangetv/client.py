@@ -147,6 +147,11 @@ class LiveboxTvUhdClient:
         else:
             self._state = States.ON if self.is_on else States.OFF
 
+    async def check_session(self):
+        if self._session:
+            return
+        await self.connect()
+
     async def connect(self):
         """Connect to SDB."""
         if self._session:
@@ -711,6 +716,8 @@ class LiveboxTvUhdClient:
         epg_id = self.get_channel_id_from_name(channel)
         return await self.set_channel_by_id(epg_id)
 
+
+
     async def rq_livebox(self, operation, params=None):
         """Send HTTP request to the livebox."""
         url = f"http://{self.hostname}:{self.port}/remoteControl/cmd"
@@ -719,6 +726,7 @@ class LiveboxTvUhdClient:
         if params:
             get_params.update(params)
         try:
+            await self.check_session()
             async with self._session.get(url, params=get_params) as r:
                 results = await r.json()
                 _LOGGER.debug("Livebox response: %s", results)
@@ -738,6 +746,7 @@ class LiveboxTvUhdClient:
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
         _LOGGER.debug("Request EPG channel id %s", channel_id)
         try:
+            await self.check_session()
             async with self._session.get(self.epg_url, params=get_params, ssl=self._sslcontext) as r:
                 results = await r.json()
                 _LOGGER.debug("EPG response: %s", results)
