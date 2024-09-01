@@ -35,7 +35,7 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
 )
 from dateutil import tz
 from fuzzywuzzy import process
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, MediaType
 
 _LOGGER = logging.getLogger(__name__)
@@ -167,10 +167,10 @@ class LiveboxTvUhdClient:
 
     async def disconnect(self):
         """Disconnect from STB."""
+        await self.stop_polling()
         if self._session:
             await self._session.close()
             self._session = None
-        await self.stop_polling()
 
     def _find_epg_entry(self, data, exact_match=False) -> any:
         if data is None:
