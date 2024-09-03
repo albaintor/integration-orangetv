@@ -45,7 +45,7 @@ SUPPORTED_DEVICETYPES = [
     "urn:schemas-upnp-org:device:MediaServer:1",
 ]
 
-SUPPORTED_MANUFACTURERS = ["SoftAtHome"]
+SUPPORTED_MANUFACTURERS = ["SoftAtHome", "SAGEM"]
 
 
 def ssdp_request(ssdp_st: str, ssdp_mx: float = SSDP_MX) -> bytes:
