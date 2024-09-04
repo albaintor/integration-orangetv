@@ -27,16 +27,14 @@ from aiohttp.web_exceptions import HTTPRequestTimeout
 from config import DeviceInstance
 from const import (  # EPG_URL,; EPG_USER_AGENT,
     KEYS,
-    MEDIA_PLAYER_STATE_MAPPING,
     OPERATION_CHANNEL_CHANGE,
     OPERATION_INFORMATION,
     OPERATION_KEYPRESS,
-    States,
 )
 from dateutil import tz
 from fuzzywuzzy import process
 from pyee.asyncio import AsyncIOEventEmitter
-from ucapi.media_player import Attributes, MediaType
+from ucapi.media_player import Attributes, MediaType, States
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -373,9 +371,7 @@ class LiveboxTvUhdClient:
                 self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
 
             if current_state != self.state:
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(
-                    self.state, ucapi.media_player.States.UNKNOWN
-                )
+                update_data[Attributes.STATE] = self.state
             if current_title != self.show_title:
                 update_data[Attributes.MEDIA_TITLE] = self.show_title
                 update_data[Attributes.MEDIA_TYPE] = self.media_type
@@ -413,9 +409,7 @@ class LiveboxTvUhdClient:
             self._show_duration = 0
             self._show_position = 0
             if current_state != self.state:
-                update_data[Attributes.STATE] = MEDIA_PLAYER_STATE_MAPPING.get(
-                    self.state, ucapi.media_player.States.UNKNOWN
-                )
+                update_data[Attributes.STATE] = self.state
                 self.events.emit(
                     Events.UPDATE,
                     self.id,
@@ -434,7 +428,22 @@ class LiveboxTvUhdClient:
         return _data
 
     @property
-    def state(self):
+    def attributes(self) -> dict[str, any]:
+        """Return the device attributes."""
+        updated_data = {
+            Attributes.STATE: self.state,
+            Attributes.SOURCE_LIST: self.channels,
+            Attributes.MEDIA_TYPE: self.media_type,
+            Attributes.MEDIA_IMAGE_URL: self.show_img,
+            Attributes.MEDIA_TITLE: self.show_title,
+            Attributes.MEDIA_ARTIST: self.channel_episode,
+            Attributes.MEDIA_POSITION: self.show_position,
+            Attributes.MEDIA_DURATION: self.show_duration
+        }
+        return updated_data
+
+    @property
+    def state(self) -> States:
         """State of device."""
         return self._state
 

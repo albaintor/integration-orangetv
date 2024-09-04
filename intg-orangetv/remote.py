@@ -9,9 +9,11 @@ import asyncio
 import logging
 from typing import Any
 
+from ucapi.media_player import States
+
 import client
 from config import DeviceInstance, create_entity_id
-from const import KEYS, States, REMOTE_BUTTONS_MAPPING, REMOTE_UI_PAGES
+from const import KEYS, REMOTE_BUTTONS_MAPPING, REMOTE_UI_PAGES
 from ucapi import EntityTypes, Remote, StatusCodes
 from ucapi.remote import Attributes, Commands, Features
 from ucapi.remote import States as RemoteStates

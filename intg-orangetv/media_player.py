@@ -11,7 +11,6 @@ from typing import Any
 import client
 from client import LiveboxTvUhdClient
 from config import DeviceInstance, create_entity_id
-from const import MEDIA_PLAYER_STATE_MAPPING
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
 from ucapi.media_player import (
     Attributes,
@@ -57,7 +56,7 @@ class OrangeMediaPlayer(MediaPlayer):
             Features.MEDIA_DURATION,
         ]
         attributes = {
-            Attributes.STATE: state_from_device(device.state),
+            Attributes.STATE: device.state,
             Attributes.SOURCE: device.channel_name if device.channel_name else "",
             Attributes.SOURCE_LIST: device.channel_names,
             Attributes.MEDIA_IMAGE_URL: device.show_img if device.show_img else "",
@@ -166,14 +165,3 @@ class OrangeMediaPlayer(MediaPlayer):
             return StatusCodes.NOT_IMPLEMENTED
         return res
 
-
-def state_from_device(client_state: client.States) -> States:
-    """
-    Convert Device state to UC API media-player state.
-
-    :param client_state: Orange STB  state
-    :return: UC API media_player state
-    """
-    if client_state in MEDIA_PLAYER_STATE_MAPPING:
-        return MEDIA_PLAYER_STATE_MAPPING[client_state]
-    return States.UNKNOWN
