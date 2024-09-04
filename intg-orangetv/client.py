@@ -432,11 +432,12 @@ class LiveboxTvUhdClient:
         """Return the device attributes."""
         updated_data = {
             Attributes.STATE: self.state,
-            Attributes.SOURCE_LIST: self.channels,
+            Attributes.SOURCE_LIST: self.channel_names,
+            Attributes.SOURCE: self.channel_name if self.channel_name else "",
             Attributes.MEDIA_TYPE: self.media_type,
-            Attributes.MEDIA_IMAGE_URL: self.show_img,
-            Attributes.MEDIA_TITLE: self.show_title,
-            Attributes.MEDIA_ARTIST: self.channel_episode,
+            Attributes.MEDIA_IMAGE_URL: self.show_img if self.show_img else "",
+            Attributes.MEDIA_TITLE: self.show_title if self.show_title else "",
+            Attributes.MEDIA_ARTIST: self.channel_episode if self.channel_episode else "",
             Attributes.MEDIA_POSITION: self.show_position,
             Attributes.MEDIA_DURATION: self.show_duration
         }

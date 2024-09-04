@@ -251,7 +251,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
 
     dropdown_items = []
     address = msg.input_values["address"]
-
+    device = None
     if address:
         _LOG.debug("Starting manual driver setup for %s", address)
         try:
@@ -267,6 +267,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
             friendly_name = data["result"]["data"]["friendlyName"]
             dropdown_items.append({"id": address, "label": {"en": f"{friendly_name} [{address}]"}})
             await device.disconnect()
+            device = None
         except Exception as ex:
             _LOG.error("Cannot connect to manually entered address %s: %s", address, ex)
             return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)

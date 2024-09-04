@@ -104,6 +104,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         if device_id in _configured_devices:
             device = _configured_devices[device_id]
             attributes = device.attributes
+            _LOG.debug("Subscribe entity %s, attributes : %s", entity_id, attributes)
             if isinstance(entity, media_player.OrangeMediaPlayer):
                 api.configured_entities.update_attributes(entity_id, attributes)
             if isinstance(entity, remote.OrangeRemote):
