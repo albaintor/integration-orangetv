@@ -72,6 +72,7 @@ KEYS = {
     "FFWD": 159,
     "REC": 167,
     "VOD": 393,
+    "GUIDE": 365,
 }
 
 REMOTE_BUTTONS_MAPPING: [DeviceButtonMapping] = [
