@@ -16,7 +16,6 @@ CHANNELS = [
     {"index": "-1", "epg_id": "-1", "name": "N/A"},
     {"index": "1", "epg_id": "192", "name": "TF1"},
     {"index": "2", "epg_id": "4", "name": "FRANCE 2"},
-    # {"index": "902", "epg_id": "4", "name": "FRANCE 2 UHD"}, # Won't work : cannot send index
     {"index": "3", "epg_id": "1939", "name": "FRANCE 3"},
     # {"index": "3", "epg_id": "80", "name": "FRANCE 3"},
     {"index": "4", "epg_id": "34", "name": "CANAL+"},
@@ -237,4 +236,7 @@ CHANNELS = [
     {"index": "616", "epg_id": "3347", "name": "CANAL+ DOCS"},
     {"index": "617", "epg_id": "3348", "name": "CANAL+ KIDS"},
     {"index": "618", "epg_id": "3349", "name": "CANAL+ GRAND ECRAN"},
+    {"index": "901", "epg_id": "2527", "name": "TF1 4K"},
+    {"index": "902", "epg_id": "4", "name": "FRANCE 2 UHD"}, # Won't work : cannot send index
+    {"index": "906", "epg_id": "3301", "name": "M6 4K"},
 ]

@@ -237,7 +237,7 @@ class LiveboxTvUhdClient:
             return
 
         await self._update_lock.acquire()
-        # _LOGGER.debug("Refresh Orange API data")
+        _LOGGER.debug("Refresh Orange API data")
         if self._session is None:
             await self.connect()
         update_data = {}
@@ -712,8 +712,9 @@ class LiveboxTvUhdClient:
 
     async def set_channel_by_id(self, epg_id):
         """Set channel from EPD id."""
+
         # The EPG ID needs to be 10 chars long, padded with '*' chars
-        self._event_loop.call_later(2, self.update)
+        self._event_loop.call_later(2, self._event_loop.create_task,self.update())
         epg_id_str = str(epg_id).rjust(10, "*")
         _LOGGER.debug("Tune to channel %s, epg_id %s", self.get_channel_from_epg_id(epg_id)["name"], epg_id_str)
         result = await self.rq_livebox(OPERATION_CHANNEL_CHANGE, OrderedDict([("epg_id", epg_id_str), ("uui", "1")]))
@@ -725,8 +726,6 @@ class LiveboxTvUhdClient:
         """Set channel by channel name."""
         epg_id = self.get_channel_id_from_name(channel)
         return await self.set_channel_by_id(epg_id)
-
-
 
     async def rq_livebox(self, operation, params=None):
         """Send HTTP request to the livebox."""
