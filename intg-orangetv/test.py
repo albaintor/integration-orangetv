@@ -24,7 +24,7 @@ async def main():
         _datalivebox = await client.rq_livebox(OPERATION_INFORMATION)
         print_json(data=_datalivebox)
         # await client.set_channel_by_name("M6 4K")
-        await client.set_channel_by_name("FRANCE 2 UHD")
+        # await client.set_channel_by_name("NICKELODEON JUNIOR")
         await asyncio.sleep(10)
 
 if __name__ == "__main__":
