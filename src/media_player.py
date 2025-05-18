@@ -8,7 +8,6 @@ Media-player entity functions.
 import logging
 from typing import Any
 
-import client
 from client import LiveboxTvUhdClient
 from config import DeviceInstance, create_entity_id
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
@@ -18,7 +17,6 @@ from ucapi.media_player import (
     DeviceClasses,
     Features,
     MediaType,
-    States,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -164,4 +162,3 @@ class OrangeMediaPlayer(MediaPlayer):
         else:
             return StatusCodes.NOT_IMPLEMENTED
         return res
-

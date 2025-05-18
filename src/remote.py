@@ -9,12 +9,11 @@ import asyncio
 import logging
 from typing import Any
 
-from ucapi.media_player import States
-
 import client
 from config import DeviceInstance, create_entity_id
 from const import KEYS, REMOTE_BUTTONS_MAPPING, REMOTE_UI_PAGES
 from ucapi import EntityTypes, Remote, StatusCodes
+from ucapi.media_player import States
 from ucapi.remote import Attributes, Commands, Features
 from ucapi.remote import States as RemoteStates
 
@@ -42,11 +41,14 @@ class OrangeRemote(Remote):
         attributes = {
             Attributes.STATE: REMOTE_STATE_MAPPING.get(device.state),
         }
-        super().__init__(entity_id, config_device.name, features, attributes,
-                         button_mapping=REMOTE_BUTTONS_MAPPING,
-                         ui_pages=
-                         REMOTE_UI_PAGES,
-                         )
+        super().__init__(
+            entity_id,
+            config_device.name,
+            features,
+            attributes,
+            button_mapping=REMOTE_BUTTONS_MAPPING,
+            ui_pages=REMOTE_UI_PAGES,
+        )
 
     def get_int_param(self, param: str, params: dict[str, Any], default: int):
         """Parse integer parameter value from given parameter."""

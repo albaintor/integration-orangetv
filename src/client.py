@@ -157,8 +157,8 @@ class LiveboxTvUhdClient:
             self._session = None
         session_timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout, sock_read=self.timeout)
         # connector = aiohttp.TCPConnector(ssl=False)
-        self._session = aiohttp.ClientSession(headers={"User-Agent": self.epg_user_agent},
-                                              timeout=session_timeout, raise_for_status=True, trust_env=True
+        self._session = aiohttp.ClientSession(
+            headers={"User-Agent": self.epg_user_agent}, timeout=session_timeout, raise_for_status=True, trust_env=True
         )
         self.events.emit(Events.CONNECTED, self.id)
         await self.start_polling()
@@ -439,7 +439,7 @@ class LiveboxTvUhdClient:
             Attributes.MEDIA_TITLE: self.show_title if self.show_title else "",
             Attributes.MEDIA_ARTIST: self.channel_episode if self.channel_episode else "",
             Attributes.MEDIA_POSITION: self.show_position,
-            Attributes.MEDIA_DURATION: self.show_duration
+            Attributes.MEDIA_DURATION: self.show_duration,
         }
         return updated_data
 
@@ -714,7 +714,7 @@ class LiveboxTvUhdClient:
         """Set channel from EPD id."""
 
         # The EPG ID needs to be 10 chars long, padded with '*' chars
-        self._event_loop.call_later(2, self._event_loop.create_task,self.update())
+        self._event_loop.call_later(2, self._event_loop.create_task, self.update())
         epg_id_str = str(epg_id).rjust(10, "*")
         _LOGGER.debug("Tune to channel %s, epg_id %s", self.get_channel_from_epg_id(epg_id)["name"], epg_id_str)
         result = await self.rq_livebox(OPERATION_CHANNEL_CHANGE, OrderedDict([("epg_id", epg_id_str), ("uui", "1")]))

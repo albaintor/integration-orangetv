@@ -7,8 +7,8 @@ Setup flow for Orange integration.
 
 import asyncio
 import logging
-from urllib.parse import urlparse
 from enum import IntEnum
+from urllib.parse import urlparse
 
 import config
 import discover
@@ -248,7 +248,6 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     # pylint: disable=W1405,W0718
     global _setup_step
 
-
     dropdown_items = []
     address = msg.input_values["address"]
     device = None
@@ -256,12 +255,15 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         _LOG.debug("Starting manual driver setup for %s", address)
         try:
             # simple connection check
-            result = urlparse('//' + address)
+            result = urlparse("//" + address)
             port = 8080
             if result.port:
                 port = result.port
-            device = LiveboxTvUhdClient(DeviceInstance(id="Orange", name="Orange", address=result.hostname,
-                                                       country="france", always_on=False, port=port))
+            device = LiveboxTvUhdClient(
+                DeviceInstance(
+                    id="Orange", name="Orange", address=result.hostname, country="france", always_on=False, port=port
+                )
+            )
             await device.connect()
             data = await device.rq_livebox(OPERATION_INFORMATION)
             friendly_name = data["result"]["data"]["friendlyName"]
@@ -308,9 +310,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                     "en": "Port number",
                     "fr": "Numéro de port",
                 },
-                "field": {
-                    "number": {"value": 8080, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
-                },
+                "field": {"number": {"value": 8080, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
             },
             {
                 "field": {
@@ -366,7 +366,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     """
     # pylint: disable=W1405,W0718
     host = msg.input_values["choice"]
-    result = urlparse('//' + host)
+    result = urlparse("//" + host)
     host = result.hostname
     port = 8080
     if result.port:
@@ -381,8 +381,9 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     _LOG.debug("Chosen Orange: %s. Trying to connect and retrieve device information...", host)
     try:
         # simple connection check
-        device = LiveboxTvUhdClient(DeviceInstance(id="Orange", name="Orange", address=host,
-                                                   country=country, always_on=always_on, port=port))
+        device = LiveboxTvUhdClient(
+            DeviceInstance(id="Orange", name="Orange", address=host, country=country, always_on=always_on, port=port)
+        )
         await device.connect()
         data = await device.rq_livebox(OPERATION_INFORMATION)
         _LOG.debug("Got data from device %s", data)
@@ -403,8 +404,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        DeviceInstance(id=unique_id, name=friendly_name, address=host,
-                       country=country, always_on=always_on, port=port)
+        DeviceInstance(id=unique_id, name=friendly_name, address=host, country=country, always_on=always_on, port=port)
     )  # triggers OrangeAVR instance creation
     config.devices.store()
 

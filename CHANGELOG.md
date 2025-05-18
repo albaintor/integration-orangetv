@@ -16,3 +16,6 @@ _Changes in the next release_
 
 ## v1.0.4 - 2024-07-22
 ### Optimizations for battery usage and upload to remote
+
+## v1.0.5 - v1.1.6 - 2025-05-18
+### Compatibility with new OS, refactoring, ... 

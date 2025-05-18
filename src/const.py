@@ -9,10 +9,7 @@ from datetime import timedelta
 
 __version__ = "1.0.3"
 
-from enum import IntEnum
-
-import ucapi
-from ucapi.ui import DeviceButtonMapping, Buttons, UiPage
+from ucapi.ui import Buttons, DeviceButtonMapping, UiPage
 
 PROJECT_URL = "https://github.com/AkA57/liveboxtvuhd/"
 ISSUE_URL = f"{PROJECT_URL}issues"

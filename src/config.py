@@ -49,7 +49,7 @@ class DeviceInstance:
 
     def __init__(self, id, name, address, port, country, always_on):
         """Device instance registry."""
-        # pylint: disable = W0622
+        # pylint: disable = W0622,R0917
         self.id = id
         self.name = name
         self.address = address

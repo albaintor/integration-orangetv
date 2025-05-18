@@ -23,7 +23,8 @@ import websockets
 from client import LiveboxTvUhdClient
 from config import device_from_entity_id
 from ucapi.api import IntegrationAPI, filter_log_msg_data
-from ucapi.media_player import Attributes as MediaAttr, States
+from ucapi.media_player import Attributes as MediaAttr
+from ucapi.media_player import States
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 _LOOP = asyncio.get_event_loop()
@@ -109,9 +110,14 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
                 api.configured_entities.update_attributes(entity_id, attributes)
             if isinstance(entity, remote.OrangeRemote):
                 # Remote entity : only attribute is the remote's state
-                api.configured_entities.update_attributes(entity_id, {ucapi.remote.Attributes.STATE:
-                    remote.REMOTE_STATE_MAPPING.get(
-                    attributes.get(MediaAttr.STATE, States.UNKNOWN))})
+                api.configured_entities.update_attributes(
+                    entity_id,
+                    {
+                        ucapi.remote.Attributes.STATE: remote.REMOTE_STATE_MAPPING.get(
+                            attributes.get(MediaAttr.STATE, States.UNKNOWN)
+                        )
+                    },
+                )
             continue
 
         device = config.devices.get(device_id)
