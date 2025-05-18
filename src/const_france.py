@@ -1,7 +1,7 @@
 """
 Static file of the integration driver for France STB.
 
-:copyright: (c) 2024 by Unfolded Circle ApS.
+:copyright: (c) 2025 Albaintor
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 

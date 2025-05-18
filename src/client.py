@@ -3,7 +3,7 @@
 """
 This module implements the Orange TV communication of the Remote Two integration driver.
 
-:copyright: (c) 2023-2024 by Unfolded Circle ApS.
+:copyright: (c) 2025 Albaintor
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 import asyncio
@@ -714,7 +714,6 @@ class LiveboxTvUhdClient:
 
     async def set_channel_by_id(self, epg_id):
         """Set channel from EPD id."""
-
         # The EPG ID needs to be 10 chars long, padded with '*' chars
         self._event_loop.call_later(2, self._event_loop.create_task, self.update())
         epg_id_str = str(epg_id).rjust(10, "*")

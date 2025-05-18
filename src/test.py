@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+# coding: utf-8
+"""
+This module implements the Orange TV communication of the Remote Two integration driver.
+
+:copyright: (c) Albaintor
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
+"""
 # pylint: skip-file
 import asyncio
 import logging
