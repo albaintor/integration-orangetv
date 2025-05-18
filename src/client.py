@@ -24,6 +24,11 @@ import certifi
 import ucapi.media_player
 from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError
 from aiohttp.web_exceptions import HTTPRequestTimeout
+from dateutil import tz
+from fuzzywuzzy import process
+from pyee.asyncio import AsyncIOEventEmitter
+from ucapi.media_player import Attributes, MediaType, States
+
 from config import DeviceInstance
 from const import (  # EPG_URL,; EPG_USER_AGENT,
     KEYS,
@@ -31,10 +36,6 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
     OPERATION_INFORMATION,
     OPERATION_KEYPRESS,
 )
-from dateutil import tz
-from fuzzywuzzy import process
-from pyee.asyncio import AsyncIOEventEmitter
-from ucapi.media_player import Attributes, MediaType, States
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -146,6 +147,7 @@ class LiveboxTvUhdClient:
             self._state = States.ON if self.is_on else States.OFF
 
     async def check_session(self):
+        """Check session state."""
         if self._session:
             return
         await self.connect()

@@ -9,13 +9,14 @@ import asyncio
 import logging
 from typing import Any
 
-import client
-from config import DeviceInstance, create_entity_id
-from const import KEYS, REMOTE_BUTTONS_MAPPING, REMOTE_UI_PAGES
 from ucapi import EntityTypes, Remote, StatusCodes
 from ucapi.media_player import States
 from ucapi.remote import Attributes, Commands, Features
 from ucapi.remote import States as RemoteStates
+
+import client
+from config import DeviceInstance, create_entity_id
+from const import KEYS, REMOTE_BUTTONS_MAPPING, REMOTE_UI_PAGES
 
 _LOG = logging.getLogger(__name__)
 

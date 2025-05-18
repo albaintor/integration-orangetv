@@ -12,19 +12,20 @@ import logging
 import os
 from typing import Any
 
+import ucapi
+import ucapi.api_definitions as uc
+import websockets
+from ucapi.api import IntegrationAPI, filter_log_msg_data
+from ucapi.media_player import Attributes as MediaAttr
+from ucapi.media_player import States
+
 import client
 import config
 import media_player
 import remote
 import setup_flow
-import ucapi
-import ucapi.api_definitions as uc
-import websockets
 from client import LiveboxTvUhdClient
 from config import device_from_entity_id
-from ucapi.api import IntegrationAPI, filter_log_msg_data
-from ucapi.media_player import Attributes as MediaAttr
-from ucapi.media_player import States
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 _LOOP = asyncio.get_event_loop()

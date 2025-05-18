@@ -8,8 +8,6 @@ Media-player entity functions.
 import logging
 from typing import Any
 
-from client import LiveboxTvUhdClient
-from config import DeviceInstance, create_entity_id
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
 from ucapi.media_player import (
     Attributes,
@@ -18,6 +16,9 @@ from ucapi.media_player import (
     Features,
     MediaType,
 )
+
+from client import LiveboxTvUhdClient
+from config import DeviceInstance, create_entity_id
 
 _LOG = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class OrangeMediaPlayer(MediaPlayer):
             Features.MEDIA_POSITION,
             Features.MEDIA_DURATION,
         ]
+        # pylint: disable=R0801
         attributes = {
             Attributes.STATE: device.state,
             Attributes.SOURCE: device.channel_name if device.channel_name else "",
@@ -64,11 +66,6 @@ class OrangeMediaPlayer(MediaPlayer):
             Attributes.MEDIA_DURATION: device.show_duration,
             Attributes.MEDIA_TYPE: device.media_type if device.media_type else MediaType.TVSHOW,
         }
-        # # use sound mode support & name from configuration: receiver might not yet be connected
-        # if device.support_sound_mode:
-        #     features.append(Features.SELECT_SOUND_MODE)
-        #     attributes[Attributes.SOUND_MODE] = ""
-        #     attributes[Attributes.SOUND_MODE_LIST] = []
 
         super().__init__(
             entity_id,

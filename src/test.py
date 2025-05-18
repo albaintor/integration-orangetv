@@ -1,11 +1,13 @@
+# pylint: skip-file
 import asyncio
 import logging
 import sys
 
+from rich import print_json
+
 from client import LiveboxTvUhdClient
 from config import DeviceInstance
 from const import OPERATION_INFORMATION
-from rich import print_json
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

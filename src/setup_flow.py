@@ -10,11 +10,6 @@ import logging
 from enum import IntEnum
 from urllib.parse import urlparse
 
-import config
-import discover
-from client import LiveboxTvUhdClient
-from config import DeviceInstance
-from const import OPERATION_INFORMATION
 from ucapi import (
     AbortDriverSetup,
     DriverSetupRequest,
@@ -26,6 +21,12 @@ from ucapi import (
     SetupError,
     UserDataResponse,
 )
+
+import config
+import discover
+from client import LiveboxTvUhdClient
+from config import DeviceInstance
+from const import OPERATION_INFORMATION
 
 _LOG = logging.getLogger(__name__)
 
