@@ -7,6 +7,7 @@ This module implements the Orange TV communication of the Remote Two integration
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 # pylint: skip-file
+# flake8: noqa
 import asyncio
 import logging
 import sys
