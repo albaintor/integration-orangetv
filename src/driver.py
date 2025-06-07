@@ -345,6 +345,12 @@ def on_device_added(device: config.DeviceInstance) -> None:
     _configure_new_device(device, connect=False)
 
 
+def on_device_updated(device: config.DeviceInstance) -> None:
+    """Handle an updated device in the configuration."""
+    _LOG.debug("Device config updated: %s, reconnect with new configuration", device)
+    _configure_new_device(device, connect=True)
+
+
 def on_device_removed(device: config.DeviceInstance | None) -> None:
     """Handle a removed device in the configuration."""
     if device is None:
@@ -411,7 +417,7 @@ async def main():
     logging.getLogger("setup_flow").setLevel(level)
     logging.getLogger("remote").setLevel(level)
 
-    config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
+    config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)
     for device in config.devices.all():
         _LOG.debug("UC Orange device %s %s", device.id, device.address)
         _configure_new_device(device, connect=False)

@@ -27,7 +27,7 @@ asyncio.set_event_loop(_LOOP)
 async def main():
     _LOG.debug("Start connection")
     client = LiveboxTvUhdClient(
-        device_config=DeviceInstance(
+        device_config=DeviceInstance(#192.168.1.129 192.168.1.132
             id="deviceid", name="LiveboxUHD", address="192.168.1.129", port=8080, country="france", always_on=False
         )
     )
