@@ -23,12 +23,16 @@ if sys.platform == "win32":
 _LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(_LOOP)
 
+#192.168.1.123
+#192.168.0.8
+
+#OLD 192.168.1.35
 
 async def main():
     _LOG.debug("Start connection")
     client = LiveboxTvUhdClient(
         device_config=DeviceInstance(#192.168.1.129 192.168.1.132
-            id="deviceid", name="LiveboxUHD", address="192.168.1.129", port=8080, country="france", always_on=False
+            id="deviceid", name="LiveboxUHD", address="192.168.0.8", port=8080, country="france", always_on=False
         )
     )
     await client.connect()

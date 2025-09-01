@@ -205,12 +205,15 @@ class LiveboxTvUhdClient:
                 if not self.standby_state:
                     self._reconnect_retry += 1
                     if self._reconnect_retry > CONNECTION_RETRIES:
-                        _LOGGER.debug("Stopping update task as the device %s is off", self.id)
+                        _LOGGER.debug("[%s] Stopping update task as the device %s is off",
+                                      self._device_config.address, self.id)
                         break
-                    _LOGGER.debug("Device %s is off, retry %s", self.id, self._reconnect_retry)
+                    _LOGGER.debug("[%s] Device %s is off, retry %s", self._device_config.address,
+                                  self.id, self._reconnect_retry)
                 elif self._reconnect_retry > 0:
                     self._reconnect_retry = 0
-                    _LOGGER.debug("Device %s is on again", self.id)
+                    _LOGGER.debug("[%s] Device %s is on again", self._device_config.address,
+                                  self.id)
             await self.update()
             await asyncio.sleep(10)
         self._update_task = None
@@ -220,7 +223,7 @@ class LiveboxTvUhdClient:
         """Start polling task."""
         if self._update_task is not None:
             return
-        _LOGGER.debug("Start polling task for device %s", self.id)
+        _LOGGER.debug("[%s] Start polling task for device %s", self._device_config.address, self.id)
         self._update_task = self._event_loop.create_task(self._background_update_task())
 
     async def stop_polling(self):
@@ -236,196 +239,200 @@ class LiveboxTvUhdClient:
         """Update method to refresh data."""
         # pylint: disable=R0914,R1702,R0915
         if self._update_lock.locked():
+            _LOGGER.debug("[%s] Update is locked", self._device_config.address)
             return
 
         await self._update_lock.acquire()
-        _LOGGER.debug("Refresh Orange API data")
-        if self._session is None:
-            await self.connect()
-        update_data = {}
-        current_state = self.state
-        self._osd_context = None
-        self._channel_id = None
-        self._media_state = None
-        _datalivebox = await self.rq_livebox(OPERATION_INFORMATION)
+        _LOGGER.debug("[%s] Refresh Orange API data", self._device_config.address)
         _data = None
-        if _datalivebox:
-            self._display_con_err = False
-            _data = _datalivebox["result"]["data"]
+        try:
+            if self._session is None:
+                await self.connect()
+            update_data = {}
+            current_state = self.state
+            self._osd_context = None
+            self._channel_id = None
+            self._media_state = None
+            _datalivebox = await self.rq_livebox(OPERATION_INFORMATION)
+            if _datalivebox:
+                self._display_con_err = False
+                _data = _datalivebox["result"]["data"]
 
-        if _data:
-            standby_state = _data["activeStandbyState"]
-            if standby_state != self._standby_state:
-                self._standby_state = standby_state
+            if _data:
+                standby_state = _data["activeStandbyState"]
+                if standby_state != self._standby_state:
+                    self._standby_state = standby_state
 
-            if "playedMediaState" in _data:
-                media_state = _data["playedMediaState"]
-                if media_state != self._media_state:
-                    self._media_state = media_state
+                if "playedMediaState" in _data:
+                    media_state = _data["playedMediaState"]
+                    if media_state != self._media_state:
+                        self._media_state = media_state
 
-            self._osd_context = _data["osdContext"]
-            self._wol_support = _data["wolSupport"]
+                self._osd_context = _data["osdContext"]
+                self._wol_support = _data["wolSupport"]
 
-            if "playedMediaId" in _data:
-                self._channel_id = _data["playedMediaId"]
-            self.refresh_state()
-        else:
-            if self._standby_state != "1":
-                self._standby_state = "1"
+                if "playedMediaId" in _data:
+                    self._channel_id = _data["playedMediaId"]
                 self.refresh_state()
+            else:
+                if self._standby_state != "1":
+                    self._standby_state = "1"
+                    self.refresh_state()
 
-        # If a channel is displayed
-        if self._channel_id:
-            channel = self.get_channel_from_epg_id(self._channel_id)
-            current_title = self.show_title
-            current_episode = self.channel_episode
-            current_img = self.show_img
-            current_position = self.show_position
-            current_duration = self.show_duration
-            current_channel = self.channel_name
+            # If a channel is displayed
+            if self._channel_id:
+                channel = self.get_channel_from_epg_id(self._channel_id)
+                current_title = self.show_title
+                current_episode = self.channel_episode
+                current_img = self.show_img
+                current_position = self.show_position
+                current_duration = self.show_duration
+                current_channel = self.channel_name
 
-            # We should update all information only if channel or show change
-            if self._channel_id != self._last_channel_id or self._show_position > self._show_duration:
+                # We should update all information only if channel or show change
+                if self._channel_id != self._last_channel_id or self._show_position > self._show_duration:
+                    self._last_channel_id = self._channel_id
+                    if channel:
+                        self._channel_name = channel["name"]
+                    else:
+                        self._channel_name = None
+
+                    # Reset everything
+                    self._show_series_title = None
+                    self._show_season = None
+                    self._show_episode = None
+                    self._show_title = None
+                    self._show_img = None
+                    self._show_position = 0
+                    self._show_start_dt = 0
+
+                    # Get EPG information
+                    channel_id = None
+                    try:
+                        channel_id = int(self._channel_id)
+                    except ValueError:
+                        pass
+
+                    if channel_id and channel_id != 0:
+                        if self.country == "france":
+                            epg_data = await self._get_epg_data(self._channel_id)
+                            if epg_data is not None and epg_data[self._channel_id]:
+                                # Show title depending of programType and current time
+                                entry = self._find_epg_entry(epg_data[self._channel_id], False)
+
+                                if entry["programType"] == "EPISODE":
+                                    self._media_type = MediaType.VIDEO
+                                    self._show_series_title = entry["title"]
+                                    self._show_season = entry["season"]["number"]
+                                    if entry.get("episodeNumber", None):
+                                        self._show_episode = entry["episodeNumber"]
+                                    else:
+                                        self._show_episode = 0
+                                    self._show_title = entry["season"]["serie"]["title"]
+                                else:
+                                    self._media_type = MediaType.TVSHOW
+                                    self._show_title = entry["title"]
+
+                                self._show_definition = entry["definition"]
+                                self._show_start_dt = entry["diffusionDate"]
+                                self._show_duration = entry["duration"]
+                                if entry["covers"] and len(entry["covers"]) > 1:
+                                    self._show_img = entry["covers"][1]["url"]
+                                elif entry["covers"] and len(entry["covers"]) > 0:
+                                    self._show_img = entry["covers"][0]["url"]
+
+                        elif self.country == "poland":
+                            _data2 = await self.rq_epg(self._channel_id)
+                            if _data2 is not None:
+                                for epg in _data2.get("epg", None):
+                                    if self._channel_id in epg.get("channelExternalId", None):
+                                        schedules = epg.get("schedule", None)
+                                        for sch in schedules:
+                                            d = datetime.datetime.utcnow()
+                                            if (
+                                                sch.get("startDate", None)
+                                                <= calendar.timegm(d.utctimetuple())
+                                                <= sch.get("endDate", None)
+                                            ):
+                                                self._show_start_dt = sch.get("startDate", None)
+                                                self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
+
+                                                if sch.get("isSeries", False):
+                                                    self._media_type = MediaType.VIDEO
+                                                    self._show_series_title = sch.get("name", None)
+                                                    self._show_episode = sch.get("episodeNumber", None)
+                                                    # self._show_title = sch.get("name", None)
+                                                else:
+                                                    self._media_type = MediaType.TVSHOW
+                                                    self._show_title = sch.get("name", None)
+
+                                                if sch.get("imagePath", None) is not None:
+                                                    image_path = sch.get("imagePath", None)
+                                                    self._show_img = f"https://tvgo.orange.pl{image_path}"
+                                                break
+
+                                            # update position if we have show information
+
+                if self._show_start_dt > 0:
+                    d = datetime.datetime.utcnow()
+                    self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
+
+                if current_state != self.state:
+                    update_data[Attributes.STATE] = self.state
+                if current_title != self.show_title:
+                    update_data[Attributes.MEDIA_TITLE] = self.show_title
+                    update_data[Attributes.MEDIA_TYPE] = self.media_type
+
+                if current_episode != self.channel_episode:
+                    update_data[Attributes.MEDIA_ARTIST] = self.channel_episode
+
+                if current_img != self.show_img:
+                    update_data[Attributes.MEDIA_IMAGE_URL] = self.show_img
+                    update_data[Attributes.MEDIA_TYPE] = self.media_type
+                if current_position != self.show_position:
+                    update_data[Attributes.MEDIA_POSITION] = self.show_position
+                if current_duration != self.show_duration:
+                    update_data[Attributes.MEDIA_DURATION] = self.show_duration
+                if current_channel != self.channel_name:
+                    update_data[Attributes.SOURCE] = self.channel_name
+
+                if update_data:
+                    self.events.emit(Events.UPDATE, self._device_config.id, update_data)
+
+            else:
+                # Unknow or no channel displayed. Should be HOMEPAGE, NETFLIX, WHATEVER...
+                self._channel_id = -1
                 self._last_channel_id = self._channel_id
-                if channel:
-                    self._channel_name = channel["name"]
-                else:
-                    self._channel_name = None
-
-                # Reset everything
-                self._show_series_title = None
+                self._media_type = MediaType.TVSHOW
+                if self._osd_context:
+                    self._channel_name = self._osd_context.upper()
+                self._show_title = None
                 self._show_season = None
                 self._show_episode = None
                 self._show_title = None
+                self._show_definition = None
                 self._show_img = None
-                self._show_position = 0
                 self._show_start_dt = 0
-
-                # Get EPG information
-                channel_id = None
-                try:
-                    channel_id = int(self._channel_id)
-                except ValueError:
-                    pass
-
-                if channel_id and channel_id != 0:
-                    if self.country == "france":
-                        epg_data = await self._get_epg_data(self._channel_id)
-                        if epg_data is not None and epg_data[self._channel_id]:
-                            # Show title depending of programType and current time
-                            entry = self._find_epg_entry(epg_data[self._channel_id], False)
-
-                            if entry["programType"] == "EPISODE":
-                                self._media_type = MediaType.VIDEO
-                                self._show_series_title = entry["title"]
-                                self._show_season = entry["season"]["number"]
-                                if entry.get("episodeNumber", None):
-                                    self._show_episode = entry["episodeNumber"]
-                                else:
-                                    self._show_episode = 0
-                                self._show_title = entry["season"]["serie"]["title"]
-                            else:
-                                self._media_type = MediaType.TVSHOW
-                                self._show_title = entry["title"]
-
-                            self._show_definition = entry["definition"]
-                            self._show_start_dt = entry["diffusionDate"]
-                            self._show_duration = entry["duration"]
-                            if entry["covers"] and len(entry["covers"]) > 1:
-                                self._show_img = entry["covers"][1]["url"]
-                            elif entry["covers"] and len(entry["covers"]) > 0:
-                                self._show_img = entry["covers"][0]["url"]
-
-                    elif self.country == "poland":
-                        _data2 = await self.rq_epg(self._channel_id)
-                        if _data2 is not None:
-                            for epg in _data2.get("epg", None):
-                                if self._channel_id in epg.get("channelExternalId", None):
-                                    schedules = epg.get("schedule", None)
-                                    for sch in schedules:
-                                        d = datetime.datetime.utcnow()
-                                        if (
-                                            sch.get("startDate", None)
-                                            <= calendar.timegm(d.utctimetuple())
-                                            <= sch.get("endDate", None)
-                                        ):
-                                            self._show_start_dt = sch.get("startDate", None)
-                                            self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
-
-                                            if sch.get("isSeries", False):
-                                                self._media_type = MediaType.VIDEO
-                                                self._show_series_title = sch.get("name", None)
-                                                self._show_episode = sch.get("episodeNumber", None)
-                                                # self._show_title = sch.get("name", None)
-                                            else:
-                                                self._media_type = MediaType.TVSHOW
-                                                self._show_title = sch.get("name", None)
-
-                                            if sch.get("imagePath", None) is not None:
-                                                image_path = sch.get("imagePath", None)
-                                                self._show_img = f"https://tvgo.orange.pl{image_path}"
-                                            break
-
-                                        # update position if we have show information
-
-            if self._show_start_dt > 0:
-                d = datetime.datetime.utcnow()
-                self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
-
-            if current_state != self.state:
-                update_data[Attributes.STATE] = self.state
-            if current_title != self.show_title:
-                update_data[Attributes.MEDIA_TITLE] = self.show_title
-                update_data[Attributes.MEDIA_TYPE] = self.media_type
-
-            if current_episode != self.channel_episode:
-                update_data[Attributes.MEDIA_ARTIST] = self.channel_episode
-
-            if current_img != self.show_img:
-                update_data[Attributes.MEDIA_IMAGE_URL] = self.show_img
-                update_data[Attributes.MEDIA_TYPE] = self.media_type
-            if current_position != self.show_position:
-                update_data[Attributes.MEDIA_POSITION] = self.show_position
-            if current_duration != self.show_duration:
-                update_data[Attributes.MEDIA_DURATION] = self.show_duration
-            if current_channel != self.channel_name:
-                update_data[Attributes.SOURCE] = self.channel_name
-
-            if update_data:
-                self.events.emit(Events.UPDATE, self._device_config.id, update_data)
-
-        else:
-            # Unknow or no channel displayed. Should be HOMEPAGE, NETFLIX, WHATEVER...
-            self._channel_id = -1
-            self._last_channel_id = self._channel_id
-            self._media_type = MediaType.TVSHOW
-            if self._osd_context:
-                self._channel_name = self._osd_context.upper()
-            self._show_title = None
-            self._show_season = None
-            self._show_episode = None
-            self._show_title = None
-            self._show_definition = None
-            self._show_img = None
-            self._show_start_dt = 0
-            self._show_duration = 0
-            self._show_position = 0
-            if current_state != self.state:
-                update_data[Attributes.STATE] = self.state
-                self.events.emit(
-                    Events.UPDATE,
-                    self.id,
-                    {
-                        Attributes.SOURCE: "",
-                        Attributes.MEDIA_IMAGE_URL: "",
-                        Attributes.MEDIA_TITLE: "",
-                        Attributes.MEDIA_ARTIST: "",
-                        Attributes.MEDIA_POSITION: 0,
-                        Attributes.MEDIA_DURATION: 0,
-                        Attributes.MEDIA_TYPE: MediaType.TVSHOW,
-                        Attributes.STATE: self.state,
-                    },
-                )
+                self._show_duration = 0
+                self._show_position = 0
+                if current_state != self.state:
+                    update_data[Attributes.STATE] = self.state
+                    self.events.emit(
+                        Events.UPDATE,
+                        self.id,
+                        {
+                            Attributes.SOURCE: "",
+                            Attributes.MEDIA_IMAGE_URL: "",
+                            Attributes.MEDIA_TITLE: "",
+                            Attributes.MEDIA_ARTIST: "",
+                            Attributes.MEDIA_POSITION: 0,
+                            Attributes.MEDIA_DURATION: 0,
+                            Attributes.MEDIA_TYPE: MediaType.TVSHOW,
+                            Attributes.STATE: self.state,
+                        },
+                    )
+        except Exception as ex:
+            _LOGGER.error("[%s] Error during update %s", self._device_config.address, ex)
         self._update_lock.release()
         return _data
 
@@ -624,7 +631,7 @@ class LiveboxTvUhdClient:
         if isinstance(key, str):
             assert key in KEYS, f"No such key: {key}"
             key = KEYS[key]
-        _LOGGER.debug("Press key %s", self.__get_key_name(key))
+        _LOGGER.debug("[%s] Press key %s", self._device_config.address, self.__get_key_name(key))
         return await self.rq_livebox(OPERATION_KEYPRESS, OrderedDict([("key", key), ("mode", mode)]))
 
     @cmd_wrapper
@@ -671,14 +678,14 @@ class LiveboxTvUhdClient:
         """Play."""
         if self.media_state == "PAUSE":
             return await self.play_pause()
-        _LOGGER.debug("Media is already playing.")
+        _LOGGER.debug("[%s] Media is already playing", self._device_config.address)
 
     @cmd_wrapper
     async def pause(self):
         """Pause."""
         if self.media_state == "PLAY":
             return await self.play_pause()
-        _LOGGER.debug("Media is already paused.")
+        _LOGGER.debug("[%s] Media is already paused", self._device_config.address)
 
     def get_channel_names(self, json_output=False):
         """Get channel names."""
@@ -717,7 +724,8 @@ class LiveboxTvUhdClient:
         # The EPG ID needs to be 10 chars long, padded with '*' chars
         self._event_loop.call_later(2, self._event_loop.create_task, self.update())
         epg_id_str = str(epg_id).rjust(10, "*")
-        _LOGGER.debug("Tune to channel %s, epg_id %s", self.get_channel_from_epg_id(epg_id)["name"], epg_id_str)
+        _LOGGER.debug("[%s] Tune to channel %s, epg_id %s", self._device_config.address,
+                      self.get_channel_from_epg_id(epg_id)["name"], epg_id_str)
         result = await self.rq_livebox(OPERATION_CHANNEL_CHANGE, OrderedDict([("epg_id", epg_id_str), ("uui", "1")]))
         await self._event_loop.create_task(self.update())
         return result
@@ -732,14 +740,14 @@ class LiveboxTvUhdClient:
         """Send HTTP request to the livebox."""
         url = f"http://{self.hostname}:{self.port}/remoteControl/cmd"
         get_params = OrderedDict({"operation": operation})
-        _LOGGER.debug("Request Livebox operation %s", operation)
+        _LOGGER.debug("[%s] Request Livebox operation %s", self._device_config.address, operation)
         if params:
             get_params.update(params)
         try:
             await self.check_session()
             async with self._session.get(url, params=get_params) as r:
                 results = await r.json()
-                _LOGGER.debug("Livebox response: %s", results)
+                _LOGGER.debug("[%s] Livebox response: %s", self._device_config.address, results)
                 return results
         except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             self._standby_state = "1"
@@ -754,14 +762,14 @@ class LiveboxTvUhdClient:
             get_params = OrderedDict({"groupBy": "channel", "period": "current", "epgIds": channel_id, "mco": "OFR"})
         elif self.country == "poland":
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
-        _LOGGER.debug("Request EPG channel id %s", channel_id)
+        _LOGGER.debug("[%s] Request EPG channel id %s", self._device_config.address, channel_id)
         try:
             await self.check_session()
             async with self._session.get(self.epg_url, params=get_params, ssl=self._sslcontext) as r:
                 results = await r.json()
-                _LOGGER.debug("EPG response: %s", results)
+                _LOGGER.debug("[%s] EPG response: %s", self._device_config.address, results)
                 return results
         except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             # _LOGGER.error("EPG response: %s", errh)
-            _LOGGER.exception("EPG response: %s", errh, exc_info=True, stacklevel=50)
+            _LOGGER.exception("[%s] EPG response: %s", self._device_config.address, errh, exc_info=True, stacklevel=50)
             return None

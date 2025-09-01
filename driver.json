@@ -1,6 +1,6 @@
 {
   "driver_id": "orangetv_driver",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "min_core_api": "0.20.0",
   "name": {
     "en": "Orange TV"
@@ -43,5 +43,5 @@
       }
     ]
   },
-  "release_date": "2025-06-07"
+  "release_date": "2025-09-01"
 }
