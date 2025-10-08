@@ -11,12 +11,14 @@ This module implements the Orange TV communication of the Remote Two integration
 import asyncio
 import logging
 import sys
+from typing import Any
 
 from rich import print_json
 
-from client import LiveboxTvUhdClient
+from client import LiveboxTvUhdClient, Events
 from config import DeviceInstance
 from const import OPERATION_INFORMATION
+
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -28,6 +30,9 @@ asyncio.set_event_loop(_LOOP)
 
 #OLD 192.168.1.35
 
+async def on_device_update(device_id: str, update: dict[str, Any] | None) -> None:
+    print_json(data=update)
+
 async def main():
     _LOG.debug("Start connection")
     client = LiveboxTvUhdClient(
@@ -35,6 +40,7 @@ async def main():
             id="deviceid", name="LiveboxUHD", address="192.168.0.8", port=8080, country="france", always_on=False
         )
     )
+    client.events.on(Events.UPDATE, on_device_update)
     await client.connect()
     for i in range(100):
         # _LOG.debug("INFO %s %s", client.media_state, client.attributes)

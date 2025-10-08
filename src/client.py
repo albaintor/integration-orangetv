@@ -12,6 +12,7 @@ import datetime
 import json
 import logging
 import ssl
+import time
 from asyncio import CancelledError, Lock
 from collections import OrderedDict
 from datetime import timedelta
@@ -54,7 +55,7 @@ _OrangeDeviceT = TypeVar("_OrangeDeviceT", bound="LiveboxTvUhdClient")
 _P = ParamSpec("_P")
 
 CONNECTION_RETRIES = 10
-
+UPDATE_LOCK_TIMEOUT = 10.0
 
 def cmd_wrapper(
     func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
@@ -131,6 +132,7 @@ class LiveboxTvUhdClient:
         self._timezone = tz.gettz(TIMEZONE)
         self._epg_data = None
         self._update_lock = Lock()
+        self._update_lock_time: float = 0
         self._session: ClientSession | None = None
         self._reconnect_retry = 0
         self._update_task = None
@@ -234,13 +236,25 @@ class LiveboxTvUhdClient:
             except CancelledError:
                 pass
             self._update_task = None
+            try:
+                self._update_lock.release()
+            except RuntimeError:
+                pass
 
     async def update(self):
         """Update method to refresh data."""
         # pylint: disable=R0914,R1702,R0915
         if self._update_lock.locked():
             _LOGGER.debug("[%s] Update is locked", self._device_config.address)
-            return
+            if time.time() - self._update_lock_time > UPDATE_LOCK_TIMEOUT:
+                _LOGGER.warning("[%s] Update is locked since a too long time, unlock it anyway",
+                                self._device_config.address)
+                try:
+                    self._update_lock.release()
+                except RuntimeError:
+                    pass
+            else:
+                return
 
         await self._update_lock.acquire()
         _LOGGER.debug("[%s] Refresh Orange API data", self._device_config.address)
