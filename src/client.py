@@ -257,6 +257,7 @@ class LiveboxTvUhdClient:
                 return
 
         await self._update_lock.acquire()
+        self._update_lock_time = time.time()
         _LOGGER.debug("[%s] Refresh Orange API data", self._device_config.address)
         _data = None
         try:
