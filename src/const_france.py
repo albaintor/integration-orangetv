@@ -38,7 +38,7 @@ CHANNELS = [
     {"index": "22", "epg_id": "1403", "name": "6TER"},
     {"index": "23", "epg_id": "1402", "name": "RMC Story"},
     {"index": "24", "epg_id": "1400", "name": "RMC Découverte"},
-    {"index": "25", "epg_id": "1399", "name": "Chérie 25"},
+    {"index": "25", "epg_id": "1399", "name": "RMC Life"},
     {"index": "26", "epg_id": "112", "name": "LCI"},
     {"index": "27", "epg_id": "2111", "name": "France Info"},
     {"index": "28", "epg_id": "4294967295", "name": "L'Actu de la TV d'Orange"},

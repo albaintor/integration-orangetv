@@ -709,10 +709,10 @@ class LiveboxTvUhdClient:
 
     def get_channel_info(self, channel):
         """Get channel information of given channel."""
-        # If the channel start with '#' search by channel number
+        # If the channel start with '.' search by channel number
         channel_index = None
-        if channel.startswith("#"):
-            channel_index = channel.split("#")[1]
+        if channel.startswith("."):
+            channel_index = channel.split(".")[1]
         # Look for an exact match first
         for chan in self.channels:
             if channel_index:
