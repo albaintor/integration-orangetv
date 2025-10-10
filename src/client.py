@@ -258,7 +258,8 @@ class LiveboxTvUhdClient:
 
         await self._update_lock.acquire()
         self._update_lock_time = time.time()
-        _LOGGER.debug("[%s] Refresh Orange API data", self._device_config.address)
+        if self._device_config.log_client:
+            _LOGGER.debug("[%s] Refresh Orange API data", self._device_config.address)
         _data = None
         try:
             if self._session is None:
@@ -755,14 +756,16 @@ class LiveboxTvUhdClient:
         """Send HTTP request to the livebox."""
         url = f"http://{self.hostname}:{self.port}/remoteControl/cmd"
         get_params = OrderedDict({"operation": operation})
-        _LOGGER.debug("[%s] Request Livebox operation %s", self._device_config.address, operation)
+        if self._device_config.log_client:
+            _LOGGER.debug("[%s] Request Livebox operation %s", self._device_config.address, operation)
         if params:
             get_params.update(params)
         try:
             await self.check_session()
             async with self._session.get(url, params=get_params) as r:
                 results = await r.json()
-                _LOGGER.debug("[%s] Livebox response: %s", self._device_config.address, results)
+                if self._device_config.log_client:
+                    _LOGGER.debug("[%s] Livebox response: %s", self._device_config.address, results)
                 return results
         except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             self._standby_state = "1"
@@ -777,12 +780,14 @@ class LiveboxTvUhdClient:
             get_params = OrderedDict({"groupBy": "channel", "period": "current", "epgIds": channel_id, "mco": "OFR"})
         elif self.country == "poland":
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
-        _LOGGER.debug("[%s] Request EPG channel id %s", self._device_config.address, channel_id)
+        if self._device_config.log_client:
+            _LOGGER.debug("[%s] Request EPG channel id %s", self._device_config.address, channel_id)
         try:
             await self.check_session()
             async with self._session.get(self.epg_url, params=get_params, ssl=self._sslcontext) as r:
                 results = await r.json()
-                _LOGGER.debug("[%s] EPG response: %s", self._device_config.address, results)
+                if self._device_config.log_client:
+                    _LOGGER.debug("[%s] EPG response: %s", self._device_config.address, results)
                 return results
         except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
             # _LOGGER.error("EPG response: %s", errh)

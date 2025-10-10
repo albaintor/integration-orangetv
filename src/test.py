@@ -14,6 +14,7 @@ import sys
 from typing import Any
 
 from rich import print_json
+from ucapi.media_player import Attributes
 
 from client import LiveboxTvUhdClient, Events
 from config import DeviceInstance
@@ -42,6 +43,7 @@ async def main():
     )
     client.events.on(Events.UPDATE, on_device_update)
     await client.connect()
+    print_json(data=client.attributes[Attributes.SOURCE_LIST])
     for i in range(100):
         # _LOG.debug("INFO %s %s", client.media_state, client.attributes)
         # print_json(data=client.media_state)

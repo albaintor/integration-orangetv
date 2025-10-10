@@ -106,19 +106,18 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         if device_id in _configured_devices:
             device = _configured_devices[device_id]
             attributes = device.attributes
-            _LOG.debug("Subscribe entity %s, attributes : %s", entity_id, attributes)
             if isinstance(entity, media_player.OrangeMediaPlayer):
+                _LOG.debug("Subscribe entity %s, attributes : %s", entity_id, attributes)
                 api.configured_entities.update_attributes(entity_id, attributes)
             if isinstance(entity, remote.OrangeRemote):
                 # Remote entity : only attribute is the remote's state
-                api.configured_entities.update_attributes(
-                    entity_id,
-                    {
+                entity_attributes = {
                         ucapi.remote.Attributes.STATE: remote.REMOTE_STATE_MAPPING.get(
                             attributes.get(MediaAttr.STATE, States.UNKNOWN)
                         )
-                    },
-                )
+                }
+                _LOG.debug("Subscribe entity %s, attributes : %s", entity_id, entity_attributes)
+                api.configured_entities.update_attributes(entity_id, entity_attributes)
             continue
 
         device = config.devices.get(device_id)
@@ -348,6 +347,13 @@ def on_device_added(device: config.DeviceInstance) -> None:
 def on_device_updated(device: config.DeviceInstance) -> None:
     """Handle an updated device in the configuration."""
     _LOG.debug("Device config updated: %s, reconnect with new configuration", device)
+    if device.id in _configured_devices:
+        _LOG.debug("Disconnecting from removed device %s", device.id)
+        configured = _configured_devices.pop(device.id)
+        configured.events.remove_all_listeners()
+        for entity_id in _entities_from_device(configured.id):
+            api.configured_entities.remove(entity_id)
+            api.available_entities.remove(entity_id)
     _configure_new_device(device, connect=True)
 
 
@@ -362,7 +368,7 @@ def on_device_removed(device: config.DeviceInstance | None) -> None:
         api.available_entities.clear()
     else:
         if device.id in _configured_devices:
-            _LOG.debug("Disconnecting from removed AVR %s", device.id)
+            _LOG.debug("Disconnecting from removed device %s", device.id)
             configured = _configured_devices.pop(device.id)
             _LOOP.create_task(_async_remove(configured))
             for entity_id in _entities_from_device(configured.id):

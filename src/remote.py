@@ -125,8 +125,8 @@ class OrangeRemote(Remote):
         if Attributes.STATE in update:
             state = REMOTE_STATE_MAPPING.get(update[Attributes.STATE])
             attributes = self._key_update_helper(Attributes.STATE, state, attributes)
-
-        _LOG.debug("Orange remote update attributes %s -> %s", update, attributes)
+        if attributes:
+            _LOG.debug("Orange remote update attributes %s -> %s", update, attributes)
         return attributes
 
     def _key_update_helper(self, key: str, value: str | None, attributes):

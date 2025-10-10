@@ -46,8 +46,9 @@ class DeviceInstance:
     port: int
     country: str
     always_on: bool
+    log_client: bool
 
-    def __init__(self, id, name, address, port, country, always_on):
+    def __init__(self, id, name, address, port, country, always_on, log_client=False):
         """Device instance registry."""
         # pylint: disable = W0622,R0917
         self.id = id
@@ -56,6 +57,7 @@ class DeviceInstance:
         self.port = port
         self.country = country
         self.always_on = always_on
+        self.log_client = log_client
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -127,6 +129,7 @@ class Devices:
                 item.name = device_instance.name
                 item.country = device_instance.country
                 item.always_on = device_instance.always_on
+                item.log_client = device_instance.log_client
                 return self.store()
         return False
 

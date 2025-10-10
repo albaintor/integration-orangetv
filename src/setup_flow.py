@@ -373,6 +373,14 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                         },
                         "field": {"checkbox": {"value": _reconfigured_device.always_on}},
                     },
+                    {
+                        "id": "log_client",
+                        "label": {
+                            "en": "Log client messages for analysis",
+                            "fr": "Tracer les messages du client pour analyse",
+                        },
+                        "field": {"checkbox": {"value": _reconfigured_device.log_client}},
+                    },
                 ],
             )
         case "reset":
@@ -505,6 +513,14 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                 },
                 "field": {"checkbox": {"value": False}},
             },
+            {
+                "id": "log_client",
+                "label": {
+                    "en": "Log client messages for analysis",
+                    "fr": "Tracer les messages du client pour analyse",
+                },
+                "field": {"checkbox": {"value": False}},
+            },
         ],
     )
 
@@ -532,11 +548,13 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
             return SetupError(error_type=IntegrationSetupError.OTHER)
     country = msg.input_values.get("country", "france")
     always_on = msg.input_values.get("always_on") == "true"
+    log_client = msg.input_values.get("log_client") == "true"
     _LOG.debug("Chosen Orange: %s. Trying to connect and retrieve device information...", host)
     try:
         # simple connection check
         device = LiveboxTvUhdClient(
-            DeviceInstance(id="Orange", name="Orange", address=host, country=country, always_on=always_on, port=port)
+            DeviceInstance(id="Orange", name="Orange", address=host, country=country, always_on=always_on, port=port,
+                           log_client=True)
         )
         await device.connect()
         data = await device.rq_livebox(OPERATION_INFORMATION)
@@ -558,7 +576,8 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        DeviceInstance(id=unique_id, name=friendly_name, address=host, country=country, always_on=always_on, port=port)
+        DeviceInstance(id=unique_id, name=friendly_name, address=host, country=country, always_on=always_on, port=port,
+                       log_client=log_client)
     )  # triggers OrangeAVR instance creation
     config.devices.store()
 
@@ -621,12 +640,14 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
         return SetupError(error_type=IntegrationSetupError.OTHER)
     country = msg.input_values.get("country", "france")
     always_on = msg.input_values.get("always_on") == "true"
+    log_client = msg.input_values.get("log_client") == "true"
 
     _LOG.debug("User has changed configuration")
     _reconfigured_device.address = address
     _reconfigured_device.port = port
     _reconfigured_device.country = country
     _reconfigured_device.always_on = always_on
+    _reconfigured_device.log_client = log_client
 
     config.devices.add_or_update(_reconfigured_device)  # triggers ATV instance update
     await asyncio.sleep(1)
