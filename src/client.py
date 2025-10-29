@@ -396,21 +396,21 @@ class LiveboxTvUhdClient:
                 if current_state != self.state:
                     update_data[Attributes.STATE] = self.state
                 if current_title != self.show_title:
-                    update_data[Attributes.MEDIA_TITLE] = self.show_title
+                    update_data[Attributes.MEDIA_TITLE] = self.show_title if self.show_title else ""
                     update_data[Attributes.MEDIA_TYPE] = self.media_type
 
                 if current_episode != self.channel_episode:
-                    update_data[Attributes.MEDIA_ARTIST] = self.channel_episode
+                    update_data[Attributes.MEDIA_ARTIST] = self.channel_episode if self.channel_episode else ""
 
                 if current_img != self.show_img:
-                    update_data[Attributes.MEDIA_IMAGE_URL] = self.show_img
+                    update_data[Attributes.MEDIA_IMAGE_URL] = self.show_img if self.show_img else ""
                     update_data[Attributes.MEDIA_TYPE] = self.media_type
                 if current_position != self.show_position:
                     update_data[Attributes.MEDIA_POSITION] = self.show_position
                 if current_duration != self.show_duration:
                     update_data[Attributes.MEDIA_DURATION] = self.show_duration
                 if current_channel != self.channel_name:
-                    update_data[Attributes.SOURCE] = self.channel_name
+                    update_data[Attributes.SOURCE] = self.channel_name if self.channel_name else ""
 
                 if update_data:
                     self.events.emit(Events.UPDATE, self._device_config.id, update_data)
