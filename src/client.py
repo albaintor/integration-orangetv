@@ -13,7 +13,7 @@ import json
 import logging
 import ssl
 import time
-from asyncio import CancelledError, Lock
+from asyncio import CancelledError, Lock, Task
 from collections import OrderedDict
 from datetime import timedelta
 from enum import IntEnum
@@ -137,6 +137,7 @@ class LiveboxTvUhdClient:
         self._reconnect_retry = 0
         self._update_task = None
         self._sslcontext = ssl.create_default_context(cafile=certifi.where())
+        self._manual_update_task: Task | None = None
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -674,14 +675,16 @@ class LiveboxTvUhdClient:
     async def channel_up(self):
         """Channel up."""
         result = await self._press_key(key=KEYS["CH+"])
-        self._event_loop.create_task(self.update())
+        if self._manual_update_task is None or self._manual_update_task.done():
+            self._manual_update_task = self._event_loop.create_task(self.update())
         return result
 
     @cmd_wrapper
     async def channel_down(self):
         """Channel down."""
         result = await self._press_key(key=KEYS["CH-"])
-        self._event_loop.create_task(self.update())
+        if self._manual_update_task is None or self._manual_update_task.done():
+            self._manual_update_task = self._event_loop.create_task(self.update())
         return result
 
     @cmd_wrapper
