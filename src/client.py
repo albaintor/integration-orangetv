@@ -242,6 +242,11 @@ class LiveboxTvUhdClient:
             except RuntimeError:
                 pass
 
+    async def manual_update(self):
+        """Manual update method."""
+        await asyncio.sleep(2)
+        await self.update()
+
     async def update(self):
         """Update method to refresh data."""
         # pylint: disable=R0914,R1702,R0915
@@ -676,7 +681,7 @@ class LiveboxTvUhdClient:
         """Channel up."""
         result = await self._press_key(key=KEYS["CH+"])
         if self._manual_update_task is None or self._manual_update_task.done():
-            self._manual_update_task = self._event_loop.create_task(self.update())
+            self._manual_update_task = self._event_loop.create_task(self.manual_update())
         return result
 
     @cmd_wrapper
@@ -684,7 +689,7 @@ class LiveboxTvUhdClient:
         """Channel down."""
         result = await self._press_key(key=KEYS["CH-"])
         if self._manual_update_task is None or self._manual_update_task.done():
-            self._manual_update_task = self._event_loop.create_task(self.update())
+            self._manual_update_task = self._event_loop.create_task(self.manual_update())
         return result
 
     @cmd_wrapper
@@ -741,7 +746,8 @@ class LiveboxTvUhdClient:
     async def set_channel_by_id(self, epg_id):
         """Set channel from EPD id."""
         # The EPG ID needs to be 10 chars long, padded with '*' chars
-        self._event_loop.call_later(2, self._event_loop.create_task, self.update())
+        if self._manual_update_task is None or self._manual_update_task.done():
+            self._manual_update_task = self._event_loop.create_task(self.manual_update())
         epg_id_str = str(epg_id).rjust(10, "*")
         _LOGGER.debug("[%s] Tune to channel %s, epg_id %s", self._device_config.address,
                       self.get_channel_from_epg_id(epg_id)["name"], epg_id_str)
