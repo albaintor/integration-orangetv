@@ -16,28 +16,29 @@ from typing import Any
 from rich import print_json
 from ucapi.media_player import Attributes
 
-from client import LiveboxTvUhdClient, Events
+from client import Events, LiveboxTvUhdClient
 from config import DeviceInstance
 from const import OPERATION_INFORMATION
-
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 _LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(_LOOP)
 
-#192.168.1.123
-#192.168.0.8
+# 192.168.1.123
+# 192.168.0.8
 
-#OLD 192.168.1.35
+# OLD 192.168.1.35
+
 
 async def on_device_update(device_id: str, update: dict[str, Any] | None) -> None:
     print_json(data=update)
 
+
 async def main():
     _LOG.debug("Start connection")
     client = LiveboxTvUhdClient(
-        device_config=DeviceInstance(#192.168.1.129 192.168.1.132
+        device_config=DeviceInstance(  # 192.168.1.129 192.168.1.132
             id="deviceid", name="LiveboxUHD", address="192.168.0.8", port=8080, country="france", always_on=False
         )
     )

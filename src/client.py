@@ -57,6 +57,32 @@ _P = ParamSpec("_P")
 CONNECTION_RETRIES = 10
 UPDATE_LOCK_TIMEOUT = 10.0
 
+
+def debounce(wait):
+    """Debounce function."""
+
+    def decorator(func):
+        task: Task | None = None
+
+        @wraps(func)
+        async def debounced(*args, **kwargs):
+            nonlocal task
+
+            async def call_func():
+                """Call wrapped function."""
+                await asyncio.sleep(wait)
+                await func(*args, **kwargs)
+
+            if task and not task.done():
+                task.cancel()
+            task = asyncio.create_task(call_func())
+            return task
+
+        return debounced
+
+    return decorator
+
+
 def cmd_wrapper(
     func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
 ) -> Callable[Concatenate[_OrangeDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | None]]:
@@ -137,7 +163,6 @@ class LiveboxTvUhdClient:
         self._reconnect_retry = 0
         self._update_task = None
         self._sslcontext = ssl.create_default_context(cafile=certifi.where())
-        self._manual_update_task: Task | None = None
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -208,15 +233,16 @@ class LiveboxTvUhdClient:
                 if not self.standby_state:
                     self._reconnect_retry += 1
                     if self._reconnect_retry > CONNECTION_RETRIES:
-                        _LOGGER.debug("[%s] Stopping update task as the device %s is off",
-                                      self._device_config.address, self.id)
+                        _LOGGER.debug(
+                            "[%s] Stopping update task as the device %s is off", self._device_config.address, self.id
+                        )
                         break
-                    _LOGGER.debug("[%s] Device %s is off, retry %s", self._device_config.address,
-                                  self.id, self._reconnect_retry)
+                    _LOGGER.debug(
+                        "[%s] Device %s is off, retry %s", self._device_config.address, self.id, self._reconnect_retry
+                    )
                 elif self._reconnect_retry > 0:
                     self._reconnect_retry = 0
-                    _LOGGER.debug("[%s] Device %s is on again", self._device_config.address,
-                                  self.id)
+                    _LOGGER.debug("[%s] Device %s is on again", self._device_config.address, self.id)
             await self.update()
             await asyncio.sleep(10)
         self._update_task = None
@@ -242,9 +268,10 @@ class LiveboxTvUhdClient:
             except RuntimeError:
                 pass
 
+    @debounce(2)
     async def manual_update(self):
-        """Manual update method."""
-        await asyncio.sleep(2)
+        """Manual update method debounced, which means that when it is called multiple times the timer is resetted
+        and the update method will be called once."""
         await self.update()
 
     async def update(self):
@@ -253,8 +280,9 @@ class LiveboxTvUhdClient:
         if self._update_lock.locked():
             _LOGGER.debug("[%s] Update is locked", self._device_config.address)
             if time.time() - self._update_lock_time > UPDATE_LOCK_TIMEOUT:
-                _LOGGER.warning("[%s] Update is locked since a too long time, unlock it anyway",
-                                self._device_config.address)
+                _LOGGER.warning(
+                    "[%s] Update is locked since a too long time, unlock it anyway", self._device_config.address
+                )
                 try:
                     self._update_lock.release()
                 except RuntimeError:
@@ -377,7 +405,9 @@ class LiveboxTvUhdClient:
                                                 <= sch.get("endDate", None)
                                             ):
                                                 self._show_start_dt = sch.get("startDate", None)
-                                                self._show_duration = sch.get("endDate", None) - sch.get("startDate", None)
+                                                self._show_duration = sch.get("endDate", None) - sch.get(
+                                                    "startDate", None
+                                                )
 
                                                 if sch.get("isSeries", False):
                                                     self._media_type = MediaType.VIDEO
@@ -453,6 +483,7 @@ class LiveboxTvUhdClient:
                             Attributes.STATE: self.state,
                         },
                     )
+        # pylint: disable=W0718
         except Exception as ex:
             _LOGGER.error("[%s] Error during update %s", self._device_config.address, ex)
         self._update_lock.release()
@@ -680,16 +711,14 @@ class LiveboxTvUhdClient:
     async def channel_up(self):
         """Channel up."""
         result = await self._press_key(key=KEYS["CH+"])
-        if self._manual_update_task is None or self._manual_update_task.done():
-            self._manual_update_task = self._event_loop.create_task(self.manual_update())
+        await self.manual_update()
         return result
 
     @cmd_wrapper
     async def channel_down(self):
         """Channel down."""
         result = await self._press_key(key=KEYS["CH-"])
-        if self._manual_update_task is None or self._manual_update_task.done():
-            self._manual_update_task = self._event_loop.create_task(self.manual_update())
+        await self.manual_update()
         return result
 
     @cmd_wrapper
@@ -746,11 +775,14 @@ class LiveboxTvUhdClient:
     async def set_channel_by_id(self, epg_id):
         """Set channel from EPD id."""
         # The EPG ID needs to be 10 chars long, padded with '*' chars
-        if self._manual_update_task is None or self._manual_update_task.done():
-            self._manual_update_task = self._event_loop.create_task(self.manual_update())
+        await self.manual_update()
         epg_id_str = str(epg_id).rjust(10, "*")
-        _LOGGER.debug("[%s] Tune to channel %s, epg_id %s", self._device_config.address,
-                      self.get_channel_from_epg_id(epg_id)["name"], epg_id_str)
+        _LOGGER.debug(
+            "[%s] Tune to channel %s, epg_id %s",
+            self._device_config.address,
+            self.get_channel_from_epg_id(epg_id)["name"],
+            epg_id_str,
+        )
         result = await self.rq_livebox(OPERATION_CHANNEL_CHANGE, OrderedDict([("epg_id", epg_id_str), ("uui", "1")]))
         await self._event_loop.create_task(self.update())
         return result

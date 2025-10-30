@@ -7,15 +7,11 @@ This module implements a Remote Two integration driver for Orange STB.
 """
 
 import asyncio
-import json
 import logging
 import os
 from typing import Any
 
 import ucapi
-import ucapi.api_definitions as uc
-import websockets
-from ucapi.api import IntegrationAPI, filter_log_msg_data
 from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import States
 
@@ -112,9 +108,9 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
             if isinstance(entity, remote.OrangeRemote):
                 # Remote entity : only attribute is the remote's state
                 entity_attributes = {
-                        ucapi.remote.Attributes.STATE: remote.REMOTE_STATE_MAPPING.get(
-                            attributes.get(MediaAttr.STATE, States.UNKNOWN)
-                        )
+                    ucapi.remote.Attributes.STATE: remote.REMOTE_STATE_MAPPING.get(
+                        attributes.get(MediaAttr.STATE, States.UNKNOWN)
+                    )
                 }
                 _LOG.debug("Subscribe entity %s, attributes : %s", entity_id, entity_attributes)
                 api.configured_entities.update_attributes(entity_id, entity_attributes)

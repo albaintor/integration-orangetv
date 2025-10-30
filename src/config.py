@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Iterator, Callable
+from typing import Callable, Iterator
 
 from ucapi import EntityTypes
 
@@ -72,10 +72,13 @@ class _EnhancedJSONEncoder(json.JSONEncoder):
 class Devices:
     """Integration driver configuration class. Manages all configured Sony devices."""
 
-    def __init__(self, data_path: str,
-                 add_handler: Callable[[DeviceInstance], None],
-                 remove_handler: Callable[[DeviceInstance|None], None],
-                 update_handler: Callable[[DeviceInstance], None]):
+    def __init__(
+        self,
+        data_path: str,
+        add_handler: Callable[[DeviceInstance], None],
+        remove_handler: Callable[[DeviceInstance | None], None],
+        update_handler: Callable[[DeviceInstance], None],
+    ):
         """
         Create a configuration instance for the given configuration path.
 
@@ -233,6 +236,7 @@ class Devices:
             with open(self._cfg_file_path, "w+", encoding="utf-8") as f:
                 json.dump(self._config, f, ensure_ascii=False, cls=_EnhancedJSONEncoder)
             return True
+        # pylint: disable=W0718
         except Exception as ex:
             _LOG.error(
                 "Cannot import the updated configuration %s, keeping existing configuration : %s", updated_config, ex
@@ -241,6 +245,7 @@ class Devices:
                 # Restore current configuration
                 self._config = config_backup
                 self.store()
+            # pylint: disable=W0718
             except Exception:
                 pass
         return False
