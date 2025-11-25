@@ -23,7 +23,7 @@ from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, 
 import aiohttp
 import certifi
 import ucapi.media_player
-from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError
+from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError, ClientOSError
 from aiohttp.web_exceptions import HTTPRequestTimeout
 from dateutil import tz
 from fuzzywuzzy import process
@@ -56,7 +56,7 @@ _P = ParamSpec("_P")
 
 CONNECTION_RETRIES = 10
 UPDATE_LOCK_TIMEOUT = 10.0
-
+ERROR_OS_WAIT = 0.5
 
 def debounce(wait):
     """Debounce function."""
@@ -101,6 +101,14 @@ def cmd_wrapper(
         return ucapi.StatusCodes.OK
 
     return wrapper
+
+
+def _get_key_name(key_id):
+    """Return key from Id."""
+    for key_name, k_id in KEYS.items():
+        if k_id == key_id:
+            return key_name
+    return None
 
 
 class LiveboxTvUhdClient:
@@ -667,12 +675,6 @@ class LiveboxTvUhdClient:
         """Toggle on/off the device."""
         return await self._press_key(key=KEYS["POWER"])
 
-    def __get_key_name(self, key_id):
-        for key_name, k_id in KEYS.items():
-            if k_id == key_id:
-                return key_name
-        return None
-
     async def _press_key(self, key, mode=0):
         """Press key with press mode.
 
@@ -684,7 +686,7 @@ class LiveboxTvUhdClient:
         if isinstance(key, str):
             assert key in KEYS, f"No such key: {key}"
             key = KEYS[key]
-        _LOGGER.debug("[%s] Press key %s", self._device_config.address, self.__get_key_name(key))
+        _LOGGER.debug("[%s] Press key %s", self._device_config.address, _get_key_name(key))
         return await self.rq_livebox(OPERATION_KEYPRESS, OrderedDict([("key", key), ("mode", mode)]))
 
     @cmd_wrapper
@@ -808,11 +810,22 @@ class LiveboxTvUhdClient:
                 if self._device_config.log_client:
                     _LOGGER.debug("[%s] Livebox response: %s", self._device_config.address, results)
                 return results
-        except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
+        except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as ex:
+            if isinstance(ex, ClientOSError):
+                _LOGGER.warning("[%s] OS error, waiting %ss", self._device_config.address, ERROR_OS_WAIT)
+                try:
+                    await asyncio.sleep(ERROR_OS_WAIT)
+                    async with self._session.get(url, params=get_params) as r:
+                        results = await r.json()
+                        if self._device_config.log_client:
+                            _LOGGER.debug("[%s] Livebox response: %s", self._device_config.address, results)
+                        return results
+                except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError):
+                    pass
             self._standby_state = "1"
-            if self._display_con_err:
+            if self._display_con_err or self._device_config.log_client:
                 self._display_con_err = False
-                _LOGGER.error(errh)
+                _LOGGER.error("Livebox request error : %s", ex)
 
     async def rq_epg(self, channel_id):
         """Request to EPG by channel ID."""
