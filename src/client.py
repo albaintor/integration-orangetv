@@ -23,7 +23,12 @@ from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, 
 import aiohttp
 import certifi
 import ucapi.media_player
-from aiohttp import ClientConnectionError, ClientSession, ServerTimeoutError, ClientOSError
+from aiohttp import (
+    ClientConnectionError,
+    ClientOSError,
+    ClientSession,
+    ServerTimeoutError,
+)
 from aiohttp.web_exceptions import HTTPRequestTimeout
 from dateutil import tz
 from fuzzywuzzy import process
