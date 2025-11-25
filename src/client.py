@@ -58,6 +58,7 @@ CONNECTION_RETRIES = 10
 UPDATE_LOCK_TIMEOUT = 10.0
 ERROR_OS_WAIT = 0.5
 
+
 def debounce(wait):
     """Debounce function."""
 
