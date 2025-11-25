@@ -280,6 +280,7 @@ class LiveboxTvUhdClient:
     @debounce(2)
     async def manual_update(self):
         """Manual update method debounced.
+
         Means that when it is called multiple times the timer is resetted  and the update method will be called once"""
         await self.update()
 
