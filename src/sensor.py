@@ -101,7 +101,7 @@ class OrangeSensorMediaTitle(OrangeSensor):
         # TODO : dict instead of name to report language names
         self._device = device
         self._config_device = config_device
-        super().__init__(entity_id, {"en": "Channel", "fr": "Chaîne"}, config_device, device)
+        super().__init__(entity_id, {"en": "Media title", "fr": "Programme"}, config_device, device)
 
     def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Return updated sensor value from full update if provided or sensor value if no udpate is provided."""
