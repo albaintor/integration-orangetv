@@ -468,6 +468,7 @@ class LiveboxTvUhdClient:
                     update_data[Attributes.MEDIA_DURATION] = self.show_duration
                 if current_channel != self.channel_name:
                     update_data[Attributes.SOURCE] = self.channel_name if self.channel_name else ""
+                    update_data[OrangeSensors.SENSOR_CHANNEL] = self.channel_name if self.channel_name else ""
 
                 if update_data:
                     self.events.emit(Events.UPDATE, self._device_config.id, update_data)
