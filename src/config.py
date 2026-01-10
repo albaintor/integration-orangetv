@@ -9,31 +9,30 @@ import dataclasses
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Iterator
 
-from ucapi import EntityTypes
+from ucapi import Entity, EntityTypes
+
+from const import DEFAULT_COUNTRY, DEFAULT_PORT
 
 _LOG = logging.getLogger(__name__)
 
 _CFG_FILENAME = "config.json"
 
 
+class OrangeEntity(Entity):
+    """Global Orange entity."""
+
+    @property
+    def deviceid(self) -> str:
+        """Return the device identifier."""
+        raise NotImplementedError()
+
+
 def create_entity_id(device_id: str, entity_type: EntityTypes) -> str:
     """Create a unique entity identifier for the given receiver and entity type."""
     return f"{entity_type.value}.{device_id}"
-
-
-def device_from_entity_id(entity_id: str) -> str | None:
-    """
-    Return the avr_id prefix of an entity_id.
-
-    The prefix is the part before the first dot in the name and refers to the AVR device identifier.
-
-    :param entity_id: the entity identifier
-    :return: the device prefix, or None if entity_id doesn't contain a dot
-    """
-    return entity_id.split(".", 1)[1]
 
 
 @dataclass
@@ -43,21 +42,20 @@ class DeviceInstance:
     id: str
     name: str
     address: str
-    port: int
-    country: str
-    always_on: bool
-    log_client: bool
+    port: int = field(default=DEFAULT_PORT)
+    country: str = field(default=DEFAULT_COUNTRY)
+    always_on: bool = field(default=False)
+    log_client: bool = field(default=False)
 
-    def __init__(self, id, name, address, port, country, always_on, log_client=False):
-        """Device instance registry."""
-        # pylint: disable = W0622,R0917
-        self.id = id
-        self.name = name
-        self.address = address
-        self.port = port
-        self.country = country
-        self.always_on = always_on
-        self.log_client = log_client
+    def __post_init__(self):
+        """Apply default values on missing fields."""
+        for attribute in dataclasses.fields(self):
+            # If there is a default and the value of the field is none we can assign a value
+            if (
+                not isinstance(attribute.default, dataclasses.MISSING.__class__)
+                and getattr(self, attribute.name) is None
+            ):
+                setattr(self, attribute.name, attribute.default)
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):

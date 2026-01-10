@@ -18,12 +18,12 @@ from ucapi.media_player import (
 )
 
 from client import LiveboxTvUhdClient
-from config import DeviceInstance, create_entity_id
+from config import DeviceInstance, OrangeEntity, create_entity_id
 
 _LOG = logging.getLogger(__name__)
 
 
-class OrangeMediaPlayer(MediaPlayer):
+class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
     """Representation of a Sony Media Player entity."""
 
     # pylint: disable=R0915,R0903
@@ -75,7 +75,12 @@ class OrangeMediaPlayer(MediaPlayer):
             device_class=DeviceClasses.SET_TOP_BOX,
         )
 
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
+    @property
+    def deviceid(self) -> str:
+        """Return the device identifier."""
+        return self._device.id
+
+    async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
         """
         Media-player entity command handler.
 
@@ -83,8 +88,11 @@ class OrangeMediaPlayer(MediaPlayer):
 
         :param cmd_id: command
         :param params: optional command parameters
+        :param websocket: optional websocket connection. Allows for directed event
+                          callbacks instead of broadcasts.
         :return: status code of the command request
         """
+        # pylint: disable = R0915
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params)
 
         if self._device is None:

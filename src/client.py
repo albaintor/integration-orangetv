@@ -41,6 +41,7 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
     OPERATION_CHANNEL_CHANGE,
     OPERATION_INFORMATION,
     OPERATION_KEYPRESS,
+    OrangeSensors,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -450,9 +451,13 @@ class LiveboxTvUhdClient:
                 if current_title != self.show_title:
                     update_data[Attributes.MEDIA_TITLE] = self.show_title if self.show_title else ""
                     update_data[Attributes.MEDIA_TYPE] = self.media_type
+                    update_data[OrangeSensors.SENSOR_MEDIA_TITLE] = self.show_title if self.show_title else ""
 
                 if current_episode != self.channel_episode:
                     update_data[Attributes.MEDIA_ARTIST] = self.channel_episode if self.channel_episode else ""
+                    update_data[OrangeSensors.SENSOR_MEDIA_EPISODE] = (
+                        self.channel_episode if self.channel_episode else ""
+                    )
 
                 if current_img != self.show_img:
                     update_data[Attributes.MEDIA_IMAGE_URL] = self.show_img if self.show_img else ""
@@ -497,6 +502,9 @@ class LiveboxTvUhdClient:
                             Attributes.MEDIA_DURATION: 0,
                             Attributes.MEDIA_TYPE: MediaType.TVSHOW,
                             Attributes.STATE: self.state,
+                            OrangeSensors.SENSOR_CHANNEL: "",
+                            OrangeSensors.SENSOR_MEDIA_TITLE: "",
+                            OrangeSensors.SENSOR_MEDIA_EPISODE: "",
                         },
                     )
         # pylint: disable=W0718
@@ -506,7 +514,7 @@ class LiveboxTvUhdClient:
         return _data
 
     @property
-    def attributes(self) -> dict[str, any]:
+    def attributes(self) -> dict[str, Any]:
         """Return the device attributes."""
         updated_data = {
             Attributes.STATE: self.state,
@@ -518,6 +526,9 @@ class LiveboxTvUhdClient:
             Attributes.MEDIA_ARTIST: self.channel_episode if self.channel_episode else "",
             Attributes.MEDIA_POSITION: self.show_position,
             Attributes.MEDIA_DURATION: self.show_duration,
+            OrangeSensors.SENSOR_CHANNEL: self.channel_name,
+            OrangeSensors.SENSOR_MEDIA_TITLE: self.show_title,
+            OrangeSensors.SENSOR_MEDIA_EPISODE: self.show_episode,
         }
         return updated_data
 

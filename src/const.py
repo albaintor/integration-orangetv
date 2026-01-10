@@ -9,21 +9,17 @@ from datetime import timedelta
 
 __version__ = "1.0.3"
 
+from enum import Enum
+
 from ucapi.ui import Buttons, DeviceButtonMapping, UiPage
 
-PROJECT_URL = "https://github.com/AkA57/liveboxtvuhd/"
-ISSUE_URL = f"{PROJECT_URL}issues"
 
-NAME = "liveboxtvuhd"
-STARTUP = f"""
--------------------------------------------------------------------
-{NAME}
-Version: {__version__}
-This is a custom integration.
-If you have any issues with this you need to open an issue here:
-{ISSUE_URL}
--------------------------------------------------------------------
-"""
+class OrangeSensors(str, Enum):
+    """Orange sensor values."""
+
+    SENSOR_CHANNEL = "sensor_channel"
+    SENSOR_MEDIA_TITLE = "sensor_media_title"
+    SENSOR_MEDIA_EPISODE = "sensor_media_episode"
 
 
 SCAN_INTERVAL = timedelta(seconds=10)

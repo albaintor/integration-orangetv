@@ -15,7 +15,7 @@ from ucapi.remote import Attributes, Commands, Features
 from ucapi.remote import States as RemoteStates
 
 import client
-from config import DeviceInstance, create_entity_id
+from config import DeviceInstance, OrangeEntity, create_entity_id
 from const import KEYS, REMOTE_BUTTONS_MAPPING, REMOTE_UI_PAGES
 
 _LOG = logging.getLogger(__name__)
@@ -30,7 +30,16 @@ REMOTE_STATE_MAPPING = {
 }
 
 
-class OrangeRemote(Remote):
+def get_int_param(param: str, params: dict[str, Any], default: int):
+    """Parse integer parameter value from given parameter."""
+    # TODO bug to be fixed on UC Core : some params are sent as (empty) strings by remote (hold == "")
+    value = params.get(param, default)
+    if isinstance(value, str) and len(value) > 0:
+        return int(float(value))
+    return default
+
+
+class OrangeRemote(Remote, OrangeEntity):
     """Representation of a Kodi Media Player entity."""
 
     def __init__(self, config_device: DeviceInstance, device: client.LiveboxTvUhdClient):
@@ -51,15 +60,12 @@ class OrangeRemote(Remote):
             ui_pages=REMOTE_UI_PAGES,
         )
 
-    def get_int_param(self, param: str, params: dict[str, Any], default: int):
-        """Parse integer parameter value from given parameter."""
-        # TODO bug to be fixed on UC Core : some params are sent as (empty) strings by remote (hold == "")
-        value = params.get(param, default)
-        if isinstance(value, str) and len(value) > 0:
-            return int(float(value))
-        return default
+    @property
+    def deviceid(self) -> str:
+        """Return the device identifier."""
+        return self._device.id
 
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
+    async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
         """
         Media-player entity command handler.
 
@@ -67,6 +73,8 @@ class OrangeRemote(Remote):
 
         :param cmd_id: command
         :param params: optional command parameters
+        :param websocket: optional websocket connection. Allows for directed event
+                          callbacks instead of broadcasts.
         :return: status code of the command request
         """
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params)
@@ -75,7 +83,7 @@ class OrangeRemote(Remote):
             _LOG.warning("No instance for entity: %s", self.id)
             return StatusCodes.SERVICE_UNAVAILABLE
 
-        repeat = self.get_int_param("repeat", params, 1)
+        repeat = get_int_param("repeat", params, 1)
         res = StatusCodes.OK
         for _i in range(0, repeat):
             res = await self.handle_command(cmd_id, params)
@@ -85,7 +93,7 @@ class OrangeRemote(Remote):
         """Handle command."""
         # pylint: disable=R0911,R0903
         # hold = self.get_int_param("hold", params, 0)
-        delay = self.get_int_param("delay", params, 0)
+        delay = get_int_param("delay", params, 0)
         command = params.get("command", "")
 
         if command in KEYS:
