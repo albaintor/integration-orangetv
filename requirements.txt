@@ -1,6 +1,7 @@
 pyee~=13.0.0
 ucapi==0.5.1
 python-Levenshtein~=0.27.3
+fuzzywuzzy~=0.18.0
 httpx~=0.28.1
 defusedxml~=0.7.1
 aiohttp~=3.13.3
