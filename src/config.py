@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Callable, Iterator
 
 from ucapi import Entity, EntityTypes
@@ -19,6 +20,22 @@ from const import DEFAULT_COUNTRY, DEFAULT_PORT
 _LOG = logging.getLogger(__name__)
 
 _CFG_FILENAME = "config.json"
+
+
+class PatchedEntityTypes(str, Enum):
+    """Entity types."""
+
+    COVER = "cover"
+    BUTTON = "button"
+    CLIMATE = "climate"
+    LIGHT = "light"
+    MEDIA_PLAYER = "media_player"
+    REMOTE = "remote"
+    SENSOR = "sensor"
+    SWITCH = "switch"
+    IR_EMITTER = "ir_emitter"
+    VOICE_ASSISTANT = "voice_assistant"
+    SELECT = "select"
 
 
 class OrangeEntity(Entity):
@@ -36,7 +53,7 @@ def create_entity_id(device_id: str, entity_type: EntityTypes) -> str:
 
 
 @dataclass
-class DeviceInstance:
+class OrangeConfigDevice:
     """Orange TV device configuration."""
 
     id: str
@@ -46,6 +63,7 @@ class DeviceInstance:
     country: str = field(default=DEFAULT_COUNTRY)
     always_on: bool = field(default=False)
     log_client: bool = field(default=False)
+    sensor_include_device_name: bool = field(default=True)
 
     def __post_init__(self):
         """Apply default values on missing fields."""
@@ -56,6 +74,12 @@ class DeviceInstance:
                 and getattr(self, attribute.name) is None
             ):
                 setattr(self, attribute.name, attribute.default)
+
+    def get_device_part(self) -> str:
+        """Return the device name part to build entity names."""
+        if self.sensor_include_device_name:
+            return self.name + " "
+        return ""
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -73,9 +97,9 @@ class Devices:
     def __init__(
         self,
         data_path: str,
-        add_handler: Callable[[DeviceInstance], None],
-        remove_handler: Callable[[DeviceInstance | None], None],
-        update_handler: Callable[[DeviceInstance], None],
+        add_handler: Callable[[OrangeConfigDevice], None],
+        remove_handler: Callable[[OrangeConfigDevice | None], None],
+        update_handler: Callable[[OrangeConfigDevice], None],
     ):
         """
         Create a configuration instance for the given configuration path.
@@ -84,7 +108,7 @@ class Devices:
         """
         self._data_path: str = data_path
         self._cfg_file_path: str = os.path.join(data_path, _CFG_FILENAME)
-        self._config: list[DeviceInstance] = []
+        self._config: list[OrangeConfigDevice] = []
         self._add_handler = add_handler
         self._remove_handler = remove_handler
         self._update_handler = update_handler
@@ -95,7 +119,7 @@ class Devices:
         """Return the configuration path."""
         return self._data_path
 
-    def all(self) -> Iterator[DeviceInstance]:
+    def all(self) -> Iterator[OrangeConfigDevice]:
         """Get an iterator for all device configurations."""
         return iter(self._config)
 
@@ -106,14 +130,14 @@ class Devices:
                 return True
         return False
 
-    def add(self, atv: DeviceInstance) -> None:
+    def add(self, atv: OrangeConfigDevice) -> None:
         """Add a new configured Sony device."""
         # TODO duplicate check
         self._config.append(atv)
         if self._add_handler is not None:
             self._add_handler(atv)
 
-    def get(self, avr_id: str) -> DeviceInstance | None:
+    def get(self, avr_id: str) -> OrangeConfigDevice | None:
         """Get device configuration for given identifier."""
         for item in self._config:
             if item.id == avr_id:
@@ -121,7 +145,7 @@ class Devices:
                 return dataclasses.replace(item)
         return None
 
-    def update(self, device_instance: DeviceInstance) -> bool:
+    def update(self, device_instance: OrangeConfigDevice) -> bool:
         """Update a configured Sony device and persist configuration."""
         for item in self._config:
             if item.id == device_instance.id:
@@ -134,7 +158,7 @@ class Devices:
                 return self.store()
         return False
 
-    def add_or_update(self, atv: DeviceInstance) -> None:
+    def add_or_update(self, atv: OrangeConfigDevice) -> None:
         """Add a new configured device."""
         if self.contains(atv.id):
             _LOG.debug("Existing config %s, updating it %s", atv.id, atv)
@@ -201,7 +225,7 @@ class Devices:
             self._config.clear()
             for item in data:
                 try:
-                    self._config.append(DeviceInstance(**item))
+                    self._config.append(OrangeConfigDevice(**item))
                 except TypeError as ex:
                     _LOG.warning("Invalid configuration entry will be ignored: %s", ex)
 
@@ -254,7 +278,7 @@ class Devices:
                 data = json.load(f)
             for item in data:
                 try:
-                    self._config.append(DeviceInstance(**item))
+                    self._config.append(OrangeConfigDevice(**item))
                 except TypeError as ex:
                     _LOG.warning("Invalid configuration entry will be ignored: %s", ex)
             return True

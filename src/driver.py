@@ -19,11 +19,11 @@ import client
 import config
 import media_player
 import remote
+import selector
 import sensor
 import setup_flow
-from client import LiveboxTvUhdClient
+from client import OrangeTVClient
 from config import OrangeEntity
-from sensor import OrangeSensorChannel, OrangeSensorMediaEpisode, OrangeSensorMediaTitle
 
 # pylint: disable=C0103
 
@@ -36,7 +36,7 @@ asyncio.set_event_loop(_LOOP)
 # Global variables
 api = ucapi.IntegrationAPI(_LOOP)
 # Map of device_id -> Orange instance
-_configured_devices: dict[str, LiveboxTvUhdClient] = {}
+_configured_devices: dict[str, OrangeTVClient] = {}
 _remote_in_standby = False
 
 
@@ -44,7 +44,7 @@ _remote_in_standby = False
 async def on_connect_cmd() -> None:
     """Connect all configured receivers when the Remote Two sends the connect command."""
     # TODO check if we were in standby and ignore the call? We'll also get an EXIT_STANDBY
-    _LOG.debug("R2 connect command: connecting device(s)")
+    _LOG.debug("Remote connect command: connecting device(s)")
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)
     for device in _configured_devices.values():
         # start background task
@@ -124,6 +124,8 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
                 )
             elif isinstance(entity, sensor.OrangeSensor):
                 api.configured_entities.update_attributes(entity_id, entity.update_attributes())
+            elif isinstance(entity, selector.OrangeSelect):
+                api.configured_entities.update_attributes(entity_id, entity.update_attributes())
             continue
 
         device = config.devices.get(device_id)
@@ -147,7 +149,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 
     # Keep devices that are used by other configured entities not in this list
     for entity in api.configured_entities.get_all():
-        entity_id = entity.get("entity_id")
+        entity_id = entity.get("entity_id", None)
         if entity_id in entity_ids:
             continue
         entity: OrangeEntity | None = api.configured_entities.get(entity_id)
@@ -174,27 +176,23 @@ async def on_device_connected(device_id: str):
     # TODO #20 when multiple devices are supported, the device state logic isn't that simple anymore!
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)
 
-    for entity_id in _entities_from_device(device_id):
-        configured_entity = api.configured_entities.get(entity_id)
-        if configured_entity is None:
-            continue
-
+    for configured_entity in _get_entities(device_id):
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             if (
                 configured_entity.attributes[ucapi.media_player.Attributes.STATE]
                 == ucapi.media_player.States.UNAVAILABLE
             ):
                 api.configured_entities.update_attributes(
-                    entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
+                    configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
                 )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
             if configured_entity.attributes[ucapi.remote.Attributes.STATE] == ucapi.remote.States.UNAVAILABLE:
                 api.configured_entities.update_attributes(
-                    entity_id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.OFF}
+                    configured_entity.id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.OFF}
                 )
         elif configured_entity.entity_type == ucapi.EntityTypes.SENSOR:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.ON}
+                configured_entity.id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.ON}
             )
 
 
@@ -202,22 +200,18 @@ async def on_device_disconnected(device_id: str):
     """Handle AVR disconnection."""
     _LOG.debug("Device disconnected: %s", device_id)
 
-    for entity_id in _entities_from_device(device_id):
-        configured_entity = api.configured_entities.get(entity_id)
-        if configured_entity is None:
-            continue
-
+    for configured_entity in _get_entities(device_id):
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
+                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
             )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE}
+                configured_entity.id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE}
             )
         elif configured_entity.entity_type == ucapi.EntityTypes.SENSOR:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.UNAVAILABLE}
+                configured_entity.id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.UNAVAILABLE}
             )
 
     # TODO #20 when multiple devices are supported, the device state logic isn't that simple anymore!
@@ -228,25 +222,21 @@ async def on_device_connection_error(device_id: str, message):
     """Set entities of device to state UNAVAILABLE if device connection error occurred."""
     _LOG.error(message)
 
-    for entity_id in _entities_from_device(device_id):
-        configured_entity = api.configured_entities.get(entity_id)
-        if configured_entity is None:
-            continue
-
+    for configured_entity in _get_entities(device_id):
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
+                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
             )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE}
+                configured_entity.id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE}
             )
 
     # TODO #20 when multiple devices are supported, the device state logic isn't that simple anymore!
     await api.set_device_state(ucapi.DeviceStates.ERROR)
 
 
-async def handle_avr_address_change(device_id: str, address: str) -> None:
+async def handle_device_address_change(device_id: str, address: str) -> None:
     """Update device configuration with changed IP address."""
     device = config.devices.get(device_id)
     if device and device.address != address:
@@ -255,7 +245,7 @@ async def handle_avr_address_change(device_id: str, address: str) -> None:
         config.devices.update(device)
 
 
-async def on_avr_update(device_id: str, update: dict[str, Any] | None) -> None:
+async def on_device_update(device_id: str, update: dict[str, Any] | None) -> None:
     """
     Update attributes of configured media-player entity if device properties changed.
 
@@ -273,41 +263,45 @@ async def on_avr_update(device_id: str, update: dict[str, Any] | None) -> None:
     attributes = None
 
     # TODO awkward logic: this needs better support from the integration library
-    for entity_id in _entities_from_device(device_id):
-        configured_entity = api.configured_entities.get(entity_id)
-        if configured_entity is None:
-            continue
-
+    for configured_entity in _get_entities(device_id):
         if isinstance(configured_entity, media_player.OrangeMediaPlayer):
             attributes = filter_attributes(update, ucapi.media_player.Attributes)
         elif isinstance(configured_entity, remote.OrangeRemote):
             attributes = configured_entity.filter_changed_attributes(update)
         elif isinstance(configured_entity, sensor.OrangeSensor):
             attributes = configured_entity.update_attributes(update)
+        elif isinstance(configured_entity, selector.OrangeChannelSelect):
+            attributes = configured_entity.update_attributes(update)
 
         if attributes:
-            api.configured_entities.update_attributes(entity_id, attributes)
+            api.configured_entities.update_attributes(configured_entity.id, attributes)
 
 
-def _entities_from_device(device_id: str) -> list[str]:
+def _get_entities(device_id: str, include_all=False) -> list[OrangeEntity]:
     """
-    Return all associated entity identifiers of the given AVR.
+    Return all associated entities of the given device.
 
     :param device_id: the device identifier
-    :return: list of entity identifiers
+    :param include_all: include both configured and available entities
+    :return: list of entities
     """
-    # dead simple for now: one media_player entity per device!
-    # TODO #21 support multiple zones: one media-player per zone
-    return [
-        f"media_player.{device_id}",
-        f"remote.{device_id}",
-        f"sensor.{device_id}.{OrangeSensorChannel.ENTITY_NAME}",
-        f"sensor.{device_id}.{OrangeSensorMediaTitle.ENTITY_NAME}",
-        f"sensor.{device_id}.{OrangeSensorMediaEpisode.ENTITY_NAME}",
-    ]
+    entities = []
+    for entity_entry in api.configured_entities.get_all():
+        entity: OrangeEntity | None = api.configured_entities.get(entity_entry.get("entity_id", ""))
+        if entity is None or entity.deviceid != device_id:
+            continue
+        entities.append(entity)
+    if not include_all:
+        return entities
+    for entity_entry in api.available_entities.get_all():
+        entity: OrangeEntity | None = api.available_entities.get(entity_entry.get("entity_id", ""))
+        if entity is None or entity.deviceid != device_id:
+            continue
+        entities.append(entity)
+    return entities
 
 
-def _configure_new_device(device_config: config.DeviceInstance, connect: bool = True) -> None:
+def _configure_new_device(device_config: config.OrangeConfigDevice, connect: bool = True) -> None:
     """
     Create and configure a new device.
 
@@ -322,11 +316,11 @@ def _configure_new_device(device_config: config.DeviceInstance, connect: bool = 
     else:
         if device_config.country is None:
             device_config.country = "france"
-        device = LiveboxTvUhdClient(device_config)
+        device = OrangeTVClient(device_config)
 
         device.events.on(client.Events.CONNECTED, on_device_connected)
         device.events.on(client.Events.ERROR, on_device_connection_error)
-        device.events.on(client.Events.UPDATE, on_avr_update)
+        device.events.on(client.Events.UPDATE, on_device_update)
         # receiver.events.on(avr.Events.IP_ADDRESS_CHANGED, handle_avr_address_change)
         _configured_devices[device_config.id] = device
 
@@ -337,7 +331,7 @@ def _configure_new_device(device_config: config.DeviceInstance, connect: bool = 
     _register_available_entities(device_config, device)
 
 
-def _register_available_entities(config_device: config.DeviceInstance, device: LiveboxTvUhdClient) -> None:
+def _register_available_entities(config_device: config.OrangeConfigDevice, device: OrangeTVClient) -> None:
     """
     Create entities for given receiver device and register them as available entities.
 
@@ -346,6 +340,7 @@ def _register_available_entities(config_device: config.DeviceInstance, device: L
     entities = [
         media_player.OrangeMediaPlayer(config_device, device),
         remote.OrangeRemote(config_device, device),
+        selector.OrangeChannelSelect(config_device, device),
         sensor.OrangeSensorChannel(config_device, device),
         sensor.OrangeSensorMediaTitle(config_device, device),
         sensor.OrangeSensorMediaEpisode(config_device, device),
@@ -356,26 +351,26 @@ def _register_available_entities(config_device: config.DeviceInstance, device: L
         api.available_entities.add(entity)
 
 
-def on_device_added(device: config.DeviceInstance) -> None:
+def on_device_added(device: config.OrangeConfigDevice) -> None:
     """Handle a newly added device in the configuration."""
     _LOG.debug("New device added: %s", device)
     _configure_new_device(device, connect=False)
 
 
-def on_device_updated(device: config.DeviceInstance) -> None:
+def on_device_updated(device: config.OrangeConfigDevice) -> None:
     """Handle an updated device in the configuration."""
     _LOG.debug("Device config updated: %s, reconnect with new configuration", device)
     if device.id in _configured_devices:
         _LOG.debug("Disconnecting from removed device %s", device.id)
         configured = _configured_devices.pop(device.id)
         configured.events.remove_all_listeners()
-        for entity_id in _entities_from_device(configured.id):
-            api.configured_entities.remove(entity_id)
-            api.available_entities.remove(entity_id)
+        for entity in _get_entities(configured.id):
+            api.configured_entities.remove(entity.id)
+            api.available_entities.remove(entity.id)
     _configure_new_device(device, connect=True)
 
 
-def on_device_removed(device: config.DeviceInstance | None) -> None:
+def on_device_removed(device: config.OrangeConfigDevice | None) -> None:
     """Handle a removed device in the configuration."""
     if device is None:
         _LOG.debug("Configuration cleared, disconnecting & removing all configured AVR instances")
@@ -389,12 +384,12 @@ def on_device_removed(device: config.DeviceInstance | None) -> None:
             _LOG.debug("Disconnecting from removed device %s", device.id)
             configured = _configured_devices.pop(device.id)
             _LOOP.create_task(_async_remove(configured))
-            for entity_id in _entities_from_device(configured.id):
-                api.configured_entities.remove(entity_id)
-                api.available_entities.remove(entity_id)
+            for entity in _get_entities(configured.id):
+                api.configured_entities.remove(entity.id)
+                api.available_entities.remove(entity.id)
 
 
-async def _async_remove(device: LiveboxTvUhdClient) -> None:
+async def _async_remove(device: OrangeTVClient) -> None:
     """Disconnect from receiver and remove all listeners."""
     # await device.disconnect()
     device.events.remove_all_listeners()
@@ -412,6 +407,7 @@ async def main():
     logging.getLogger("setup_flow").setLevel(level)
     logging.getLogger("remote").setLevel(level)
     logging.getLogger("sensor").setLevel(level)
+    logging.getLogger("selector").setLevel(level)
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)
     for device in config.devices.all():

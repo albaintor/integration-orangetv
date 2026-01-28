@@ -15,7 +15,7 @@ from ucapi.remote import Attributes, Commands, Features
 from ucapi.remote import States as RemoteStates
 
 import client
-from config import DeviceInstance, OrangeEntity, create_entity_id
+from config import OrangeConfigDevice, OrangeEntity, create_entity_id
 from const import KEYS, REMOTE_BUTTONS_MAPPING, REMOTE_UI_PAGES
 
 _LOG = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def get_int_param(param: str, params: dict[str, Any], default: int):
 class OrangeRemote(Remote, OrangeEntity):
     """Representation of a Kodi Media Player entity."""
 
-    def __init__(self, config_device: DeviceInstance, device: client.LiveboxTvUhdClient):
+    def __init__(self, config_device: OrangeConfigDevice, device: client.OrangeTVClient):
         """Initialize the class."""
         self._device = device
         _LOG.debug("OrangeRemote init")

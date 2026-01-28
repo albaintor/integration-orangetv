@@ -5,7 +5,7 @@ and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
 The driver discovers Orange TV STB on the network. A media player entity is exposed to the core.
 
-Supported attributes:
+**Supported attributes:**
 
 - State (on, off, playing, paused, unknown)
 - Title
@@ -14,7 +14,7 @@ Supported attributes:
 - Artwork
 - Source (channel selection)
 
-Supported commands:
+**Supported commands:**
 
 - Turn on
 - Turn off
@@ -28,6 +28,15 @@ Supported commands:
 - Source select
 - Menu
 - Record / recordings
+
+**Available select entities:**
+
+- Channel selection
+
+**Available sensors:**
+- Current channel name
+- Current program name from EPG
+- Current episode name from EPG
 
 ## Usage
 

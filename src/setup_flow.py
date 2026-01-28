@@ -24,8 +24,8 @@ from ucapi import (
 
 import config
 import discover
-from client import LiveboxTvUhdClient
-from config import DeviceInstance
+from client import OrangeTVClient
+from config import OrangeConfigDevice
 from const import OPERATION_INFORMATION
 
 _LOG = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class SetupSteps(IntEnum):
 
 _setup_step = SetupSteps.INIT
 _cfg_add_device: bool = False
-_reconfigured_device: DeviceInstance | None = None
+_reconfigured_device: OrangeConfigDevice | None = None
 _user_input_discovery = RequestUserInput(
     {"en": "Setup mode", "de": "Setup Modus"},
     [
@@ -428,8 +428,8 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
             port = 8080
             if result.port:
                 port = result.port
-            device = LiveboxTvUhdClient(
-                DeviceInstance(
+            device = OrangeTVClient(
+                OrangeConfigDevice(
                     id="Orange", name="Orange", address=result.hostname, country="france", always_on=False, port=port
                 )
             )
@@ -559,8 +559,8 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     _LOG.debug("Chosen Orange: %s. Trying to connect and retrieve device information...", host)
     try:
         # simple connection check
-        device = LiveboxTvUhdClient(
-            DeviceInstance(
+        device = OrangeTVClient(
+            OrangeConfigDevice(
                 id="Orange",
                 name="Orange",
                 address=host,
@@ -590,7 +590,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        DeviceInstance(
+        OrangeConfigDevice(
             id=unique_id,
             name=friendly_name,
             address=host,

@@ -22,6 +22,12 @@ class OrangeSensors(str, Enum):
     SENSOR_MEDIA_EPISODE = "sensor_media_episode"
 
 
+class OrangeSelects(str, Enum):
+    """Orange select values."""
+
+    SELECT_CHANNEL = "select_channel"
+
+
 SCAN_INTERVAL = timedelta(seconds=10)
 MIN_TIME_BETWEEN_SCANS = SCAN_INTERVAL
 MIN_TIME_BETWEEN_FORCED_SCANS = timedelta(seconds=1)

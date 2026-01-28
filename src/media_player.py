@@ -17,8 +17,8 @@ from ucapi.media_player import (
     MediaType,
 )
 
-from client import LiveboxTvUhdClient
-from config import DeviceInstance, OrangeEntity, create_entity_id
+from client import OrangeTVClient
+from config import OrangeConfigDevice, OrangeEntity, create_entity_id
 
 _LOG = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
     """Representation of a Sony Media Player entity."""
 
     # pylint: disable=R0915,R0903
-    def __init__(self, config_device: DeviceInstance, device: LiveboxTvUhdClient):
+    def __init__(self, config_device: OrangeConfigDevice, device: OrangeTVClient):
         """Initialize the class."""
         self._device = device
 

@@ -35,12 +35,13 @@ from fuzzywuzzy import process
 from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, MediaType, States
 
-from config import DeviceInstance
+from config import OrangeConfigDevice
 from const import (  # EPG_URL,; EPG_USER_AGENT,
     KEYS,
     OPERATION_CHANNEL_CHANGE,
     OPERATION_INFORMATION,
     OPERATION_KEYPRESS,
+    OrangeSelects,
     OrangeSensors,
 )
 
@@ -57,7 +58,7 @@ class Events(IntEnum):
     DISCONNECTED = 4
 
 
-_OrangeDeviceT = TypeVar("_OrangeDeviceT", bound="LiveboxTvUhdClient")
+_OrangeDeviceT = TypeVar("_OrangeDeviceT", bound="OrangeTVClient")
 _P = ParamSpec("_P")
 
 CONNECTION_RETRIES = 10
@@ -118,12 +119,12 @@ def _get_key_name(key_id):
     return None
 
 
-class LiveboxTvUhdClient:
+class OrangeTVClient:
     """Client for Orange TV STBs."""
 
     # pylint: disable = E0606
 
-    def __init__(self, device_config: DeviceInstance, timeout=3, refresh_frequency=60, device_id=None):
+    def __init__(self, device_config: OrangeConfigDevice, timeout=3, refresh_frequency=60, device_id=None):
         """Create a Orange STB instance."""
         if device_id is None:
             self.id = device_config.id
@@ -469,6 +470,9 @@ class LiveboxTvUhdClient:
                 if current_channel != self.channel_name:
                     update_data[Attributes.SOURCE] = self.channel_name if self.channel_name else ""
                     update_data[OrangeSensors.SENSOR_CHANNEL] = self.channel_name if self.channel_name else ""
+                    update_data[OrangeSelects.SELECT_CHANNEL] = {
+                        "current_option": self.channel_name if self.channel_name else ""
+                    }
 
                 if update_data:
                     self.events.emit(Events.UPDATE, self._device_config.id, update_data)
@@ -506,6 +510,7 @@ class LiveboxTvUhdClient:
                             OrangeSensors.SENSOR_CHANNEL: "",
                             OrangeSensors.SENSOR_MEDIA_TITLE: "",
                             OrangeSensors.SENSOR_MEDIA_EPISODE: "",
+                            OrangeSelects.SELECT_CHANNEL: {"current_option": ""},
                         },
                     )
         # pylint: disable=W0718
@@ -530,6 +535,7 @@ class LiveboxTvUhdClient:
             OrangeSensors.SENSOR_CHANNEL: self.channel_name,
             OrangeSensors.SENSOR_MEDIA_TITLE: self.show_title,
             OrangeSensors.SENSOR_MEDIA_EPISODE: self.show_episode,
+            OrangeSelects.SELECT_CHANNEL: {"current_option": self.channel_name, "options": self.channel_names},
         }
         return updated_data
 

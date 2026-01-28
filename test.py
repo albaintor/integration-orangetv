@@ -13,11 +13,13 @@ import logging
 import sys
 from typing import Any
 
+sys.path.insert(1, "src")
+
 from rich import print_json
 from ucapi.media_player import Attributes
 
-from client import Events, LiveboxTvUhdClient
-from config import DeviceInstance
+from client import Events, OrangeTVClient
+from config import OrangeConfigDevice
 from const import OPERATION_INFORMATION
 
 if sys.platform == "win32":
@@ -37,8 +39,8 @@ async def on_device_update(device_id: str, update: dict[str, Any] | None) -> Non
 
 async def main():
     _LOG.debug("Start connection")
-    client = LiveboxTvUhdClient(
-        device_config=DeviceInstance(  # 192.168.1.129 192.168.1.132
+    client = OrangeTVClient(
+        device_config=OrangeConfigDevice(  # 192.168.1.129 192.168.1.132
             id="deviceid", name="LiveboxUHD", address="192.168.0.8", port=8080, country="france", always_on=False
         )
     )

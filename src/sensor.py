@@ -14,7 +14,7 @@ from ucapi.media_player import States as MediaStates
 from ucapi.sensor import Attributes, DeviceClasses, Options, States
 
 import client
-from config import DeviceInstance, OrangeEntity, create_entity_id
+from config import OrangeConfigDevice, OrangeEntity, create_entity_id
 from const import OrangeSensors
 
 _LOG = logging.getLogger(__name__)
@@ -38,14 +38,14 @@ class OrangeSensor(OrangeEntity, Sensor):
         self,
         entity_id: str,
         name: str | dict[str, str],
-        config_device: DeviceInstance,
-        device: client.LiveboxTvUhdClient,
+        config_device: OrangeConfigDevice,
+        device: client.OrangeTVClient,
         options: dict[Options, Any] | None = None,
         device_class: DeviceClasses = DeviceClasses.CUSTOM,
     ) -> None:
         """Initialize the class."""
         # pylint: disable = R0801
-        self._device: client.LiveboxTvUhdClient = device
+        self._device: client.OrangeTVClient = device
         features = []
         attributes = dict[Any, Any]()
         self._config_device = config_device
@@ -67,13 +67,18 @@ class OrangeSensorChannel(OrangeSensor):
 
     ENTITY_NAME = "sensor_channel"
 
-    def __init__(self, config_device: DeviceInstance, device: client.LiveboxTvUhdClient):
+    def __init__(self, config_device: OrangeConfigDevice, device: client.OrangeTVClient):
         """Initialize the class."""
         entity_id = f"{create_entity_id(config_device.id, EntityTypes.SENSOR)}.{OrangeSensorChannel.ENTITY_NAME}"
         # TODO : dict instead of name to report language names
         self._device = device
         self._config_device = config_device
-        super().__init__(entity_id, {"en": "Channel", "fr": "Chaîne"}, config_device, device)
+        super().__init__(
+            entity_id,
+            {"en": f"{config_device.get_device_part()}Channel", "fr": f"{config_device.get_device_part()}Chaîne"},
+            config_device,
+            device,
+        )
 
     def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Return updated sensor value from full update if provided or sensor value if no udpate is provided."""
@@ -95,13 +100,21 @@ class OrangeSensorMediaTitle(OrangeSensor):
 
     ENTITY_NAME = "sensor_media_title"
 
-    def __init__(self, config_device: DeviceInstance, device: client.LiveboxTvUhdClient):
+    def __init__(self, config_device: OrangeConfigDevice, device: client.OrangeTVClient):
         """Initialize the class."""
         entity_id = f"{create_entity_id(config_device.id, EntityTypes.SENSOR)}.{OrangeSensorMediaTitle.ENTITY_NAME}"
         # TODO : dict instead of name to report language names
         self._device = device
         self._config_device = config_device
-        super().__init__(entity_id, {"en": "Media title", "fr": "Programme"}, config_device, device)
+        super().__init__(
+            entity_id,
+            {
+                "en": f"{config_device.get_device_part()}Media title",
+                "fr": f"{config_device.get_device_part()}Programme",
+            },
+            config_device,
+            device,
+        )
 
     def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Return updated sensor value from full update if provided or sensor value if no udpate is provided."""
@@ -123,13 +136,18 @@ class OrangeSensorMediaEpisode(OrangeSensor):
 
     ENTITY_NAME = "sensor_media_episode"
 
-    def __init__(self, config_device: DeviceInstance, device: client.LiveboxTvUhdClient):
+    def __init__(self, config_device: OrangeConfigDevice, device: client.OrangeTVClient):
         """Initialize the class."""
         entity_id = f"{create_entity_id(config_device.id, EntityTypes.SENSOR)}.{OrangeSensorMediaEpisode.ENTITY_NAME}"
         # TODO : dict instead of name to report language names
         self._device = device
         self._config_device = config_device
-        super().__init__(entity_id, {"en": "Episode", "fr": "Episode"}, config_device, device)
+        super().__init__(
+            entity_id,
+            {"en": f"{config_device.get_device_part()}Episode", "fr": f"{config_device.get_device_part()}Episode"},
+            config_device,
+            device,
+        )
 
     def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Return updated sensor value from full update if provided or sensor value if no udpate is provided."""

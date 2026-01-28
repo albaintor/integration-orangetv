@@ -1,15 +1,15 @@
 {
   "driver_id": "orangetv_driver",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "min_core_api": "0.20.0",
   "name": {
     "en": "Orange TV"
   },
   "icon": "custom:orange.png",
   "description": {
-    "en": "Control your Orange TV with Remote Two.",
-    "de": "Steuere Orange TV mit Remote Two.",
-    "fr": "Contrôler votre Orange TV avec Remote Two."
+    "en": "Control your Orange TV with Remote Two/3.",
+    "de": "Steuere Orange TV mit Remote Two/3.",
+    "fr": "Contrôler votre Orange TV avec Remote Two/3."
   },
  "developer": {
     "name": "Albaintor",
@@ -43,5 +43,5 @@
       }
     ]
   },
-  "release_date": "2026-01-10"
+  "release_date": "2026-01-28"
 }
