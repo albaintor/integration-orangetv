@@ -17,7 +17,7 @@ import time
 from asyncio import CancelledError, Lock, Task
 from collections import OrderedDict
 from datetime import timedelta
-from enum import IntEnum
+from enum import StrEnum
 from functools import wraps
 from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
@@ -35,6 +35,8 @@ from dateutil import tz
 from fuzzywuzzy import process
 from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, MediaType, States
+from ucapi.select import Attributes as SelectAttributes
+from ucapi.select import States as SelectStates
 
 from config import OrangeConfigDevice
 from const import (  # EPG_URL,; EPG_USER_AGENT,
@@ -49,14 +51,14 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
 _LOGGER = logging.getLogger(__name__)
 
 
-class Events(IntEnum):
+class Events(StrEnum):
     """Internal driver events."""
 
-    CONNECTED = 0
-    ERROR = 1
-    UPDATE = 2
-    IP_ADDRESS_CHANGED = 3
-    DISCONNECTED = 4
+    CONNECTED = "CONNECTED"
+    ERROR = "ERROR"
+    UPDATE = "UPDATE"
+    IP_ADDRESS_CHANGED = "IP_ADDRESS_CHANGED"
+    DISCONNECTED = "DISCONNECTED"
 
 
 _OrangeDeviceT = TypeVar("_OrangeDeviceT", bound="OrangeTVClient")
@@ -417,7 +419,7 @@ class OrangeTVClient:
                                     if self._channel_id in epg.get("channelExternalId", None):
                                         schedules = epg.get("schedule", None)
                                         for sch in schedules:
-                                            d = datetime.datetime.utcnow()
+                                            d = datetime.datetime.now(datetime.UTC)
                                             if (
                                                 sch.get("startDate", None)
                                                 <= calendar.timegm(d.utctimetuple())
@@ -445,7 +447,7 @@ class OrangeTVClient:
                                             # update position if we have show information
 
                 if self._show_start_dt > 0:
-                    d = datetime.datetime.utcnow()
+                    d = datetime.datetime.now(datetime.UTC)
                     self._show_position = calendar.timegm(d.utctimetuple()) - self._show_start_dt
 
                 if current_state != self.state:
@@ -472,7 +474,7 @@ class OrangeTVClient:
                     update_data[Attributes.SOURCE] = self.channel_name if self.channel_name else ""
                     update_data[OrangeSensors.SENSOR_CHANNEL] = self.channel_name if self.channel_name else ""
                     update_data[OrangeSelects.SELECT_CHANNEL] = {
-                        "current_option": self.channel_name if self.channel_name else ""
+                        SelectAttributes.CURRENT_OPTION: self.channel_name if self.channel_name else ""
                     }
 
                 if update_data:
@@ -511,7 +513,7 @@ class OrangeTVClient:
                             OrangeSensors.SENSOR_CHANNEL: "",
                             OrangeSensors.SENSOR_MEDIA_TITLE: "",
                             OrangeSensors.SENSOR_MEDIA_EPISODE: "",
-                            OrangeSelects.SELECT_CHANNEL: {"current_option": ""},
+                            OrangeSelects.SELECT_CHANNEL: {SelectAttributes.CURRENT_OPTION: ""},
                         },
                     )
         # pylint: disable=W0718
@@ -536,7 +538,11 @@ class OrangeTVClient:
             OrangeSensors.SENSOR_CHANNEL: self.channel_name,
             OrangeSensors.SENSOR_MEDIA_TITLE: self.show_title,
             OrangeSensors.SENSOR_MEDIA_EPISODE: self.show_episode,
-            OrangeSelects.SELECT_CHANNEL: {"current_option": self.channel_name, "options": self.channel_names},
+            OrangeSelects.SELECT_CHANNEL: {
+                SelectAttributes.CURRENT_OPTION: self.channel_name,
+                SelectAttributes.OPTIONS: self.channel_names,
+                SelectAttributes.STATE: SelectStates.ON,
+            },
         }
         return updated_data
 

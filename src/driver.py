@@ -270,7 +270,7 @@ async def on_device_update(device_id: str, update: dict[str, Any] | None) -> Non
             attributes = configured_entity.filter_changed_attributes(update)
         elif isinstance(configured_entity, sensor.OrangeSensor):
             attributes = configured_entity.update_attributes(update)
-        elif isinstance(configured_entity, selector.OrangeChannelSelect):
+        elif isinstance(configured_entity, selector.OrangeSelect):
             attributes = configured_entity.update_attributes(update)
 
         if attributes:

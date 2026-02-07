@@ -34,6 +34,7 @@ The driver discovers Orange TV STB on the network. A media player entity is expo
 - Channel selection
 
 **Available sensors:**
+
 - Current channel name
 - Current program name from EPG
 - Current episode name from EPG
