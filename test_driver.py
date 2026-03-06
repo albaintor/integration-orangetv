@@ -9,28 +9,73 @@ Test connection script for Kodi integration driver.
 # flake8: noqa
 
 import asyncio
+import datetime
 import io
 import json
 import logging
+import os
 import queue
 import socket
 import sys
-
-sys.path.insert(1, "src")
 import threading
+import time
 import tkinter as tk
 from asyncio import AbstractEventLoop, Future, Queue, Task
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import wraps
 from tkinter import ttk
 from typing import Any, Callable
 
+sys.path.insert(1, "src")
 import requests
 from aiohttp import ClientSession, ClientWebSocketResponse, WSMsgType
 from PIL import Image, ImageTk
 from pyee.asyncio import AsyncIOEventEmitter
 from rich import print_json
+
+
+def debounce(wait: float):
+    """Debounce function."""
+
+    def decorator(func):
+        task: Task | None = None
+
+        @wraps(func)
+        async def debounced(*args, **kwargs):
+            nonlocal task
+
+            async def call_func():
+                """Call wrapped function."""
+                await asyncio.sleep(wait)
+                await func(*args, **kwargs)
+
+            if task and not task.done():
+                task.cancel()
+            task = asyncio.create_task(call_func())
+            return task
+
+        return debounced
+
+    return decorator
+
+
+# localization_cfg = {
+#     "country_code": "EN",
+#     "language_code": "en_US",
+#     "measurement_unit": "METRIC",
+#     "time_format_24h": True,
+#     "time_zone": "Europe/Paris",
+# }
+
+localization_cfg = {
+    "country_code": "FR",
+    "language_code": "fr_FR",
+    "measurement_unit": "METRIC",
+    "time_format_24h": True,
+    "time_zone": "Europe/Paris",
+}
 
 
 class Events(StrEnum):
@@ -54,17 +99,22 @@ def get_local_ip() -> str:
     return ip
 
 
+def get_entity_name(entity: dict[str, Any]) -> str:
+    entity_id = entity.get("entity_id")
+    name = entity["name"].get("en", None)
+    if name:
+        return f"{name} {entity_id}"
+    return entity_id
+
+
 def load_image_from_url(url: str, max_size=(500, 500)) -> ImageTk.PhotoImage:
-    # Télécharge l'image
+    # Download image
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
-
-    # Ouvre l'image depuis les bytes
+    # Open image from bytes data
     img = Image.open(io.BytesIO(resp.content))
-
-    # Optionnel : redimensionne pour rentrer dans la fenêtre
+    # Resize image
     img.thumbnail(max_size)
-
     return ImageTk.PhotoImage(img)
 
 
@@ -73,10 +123,12 @@ if sys.platform == "win32":
 _LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(_LOOP)
 
-DRIVER_PORT = 9090
+DRIVER_PORT = os.getenv("UC_INTEGRATION_HTTP_PORT", 9091)
 DRIVER_URL = f"ws://{get_local_ip()}:{DRIVER_PORT}/ws"
 MAIN_WS_MAX_MSG_SIZE = 8 * 1024 * 1024  # 8Mb
 WS_TIMEOUT = 5
+BROWSING_PAGINATION = 12
+BROWSING_CELL_WIDTH = 60
 
 
 class RemoteWebsocket:
@@ -173,13 +225,38 @@ class RemoteWebsocket:
             _LOG.error("Command error %s", ex)
             return None
 
+    async def browse_media_entity(
+        self,
+        entity_id: str,
+        media_id: str | None = None,
+        media_type: str | None = None,
+        paging: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        return await self.browse_media(
+            {"entity_id": entity_id, "media_id": media_id, "media_type": media_type, "paging": paging}
+        )
+
+    async def browse_media(self, msg_data: dict[str, Any]) -> dict[str, Any] | None:
+        try:
+            _LOG.debug("Browse media: %s", msg_data)
+            response = await self.send_request_and_wait(
+                {"msg": "browse_media", "msg_data": msg_data},
+                timeout=WS_TIMEOUT,
+            )
+            return response
+        except asyncio.TimeoutError:
+            _LOG.error("Timeout while browsing media")
+            return None
+        except Exception as ex:
+            _LOG.error("Browsing error %s", ex)
+            return None
+
     async def _rx_msgs_main_ws(self, web_socket: ClientWebSocketResponse) -> None:
         """Receive messages from main websocket connection."""
         async for raw_msg in web_socket:
-            _LOG.debug("receive: %s", raw_msg)
+            # _LOG.debug("receive: %s", raw_msg)
             if raw_msg.type is not WSMsgType.TEXT:
                 break
-
             self._process_text_message(raw_msg.data)
 
     async def _handle_auth(self):
@@ -188,6 +265,115 @@ class RemoteWebsocket:
             {"kind": "resp", "req_id": self._id, "code": 200, "msg": "authentication", "msg_data": {}}
         )
         self._id += 1
+
+    async def _handle_request(self, msg: dict[str, Any]):
+        # {"kind": "req", "msg": "get_supported_entity_types"}
+        msg_type = msg.get("msg", "")
+        req_id = msg.get("id", "")
+        if msg_type == "get_supported_entity_types":
+            await self._send_json(
+                {
+                    "kind": "resp",
+                    "req_id": req_id,
+                    "code": 200,
+                    "msg": "supported_entity_types",
+                    "msg_data": [
+                        "cover",
+                        "button",
+                        "climate",
+                        "light",
+                        "media_player",
+                        "remote",
+                        "select",
+                        "sensor",
+                        "switch",
+                        "ir_emitter",
+                        "voice_assistant",
+                    ],
+                }
+            )
+        elif msg_type == "get_version":
+            await self._send_json(
+                {
+                    "kind": "resp",
+                    "req_id": req_id,
+                    "code": 200,
+                    "msg": "version",
+                    "msg_data": {
+                        "address": "AA:BB:CC:DD:EE:FF",
+                        "api": "0.16.0",
+                        "core": "0.69.1-bt",
+                        "device_name": "Remote 3",
+                        "hostname": "Remote3-aabbccdd.local",
+                        "model": "UCR3",
+                        "os": "2.8.3",
+                        "ui": "0.69.1",
+                    },
+                }
+            )
+        elif msg_type == "get_localization_cfg":
+            await self._send_json(
+                {
+                    "kind": "resp",
+                    "req_id": req_id,
+                    "code": 200,
+                    "msg": "localization_cfg",
+                    "msg_data": localization_cfg,
+                }
+            )
+        elif msg_type == "get_driver_metadata":
+            # {"id":2,"kind":"req","msg":"get_driver_metadata"}
+            with open("driver.json", "r") as file:
+                file_content = json.load(file)
+                await self._send_json(
+                    {
+                        "kind": "resp",
+                        "req_id": req_id,
+                        "code": 200,
+                        "msg": "driver_metadata",
+                        "msg_data": json.dumps(file_content),
+                    }
+                )
+
+        elif msg_type == "setup_driver":
+            # {"kind":"req","id":3,"msg":"setup_driver","msg_data":{"reconfigure":false,"setup_data":{}}}
+            await self._send_json(
+                {
+                    "kind": "resp",
+                    "req_id": req_id,
+                    "code": 200,
+                    "msg": "result",
+                    "msg_data": {},
+                }
+            )
+            await asyncio.sleep(1)
+            await self._send_json(
+                {
+                    "kind": "event",
+                    "msg": "driver_setup_change",
+                    "msg_data": {"event_type": "SETUP", "state": "SETUP"},
+                    "cat": "DEVICE",
+                }
+            )
+            await asyncio.sleep(1)
+            await self._send_json(
+                {
+                    "kind": "event",
+                    "msg": "driver_setup_change",
+                    "msg_data": {"event_type": "SETUP", "state": "OK"},
+                    "cat": "DEVICE",
+                }
+            )
+        else:
+            await self._send_json(
+                {
+                    "kind": "resp",
+                    "req_id": req_id,
+                    "code": 400,
+                    "msg": f"{msg_type}",
+                    "msg_data": f"Unknown message type: {msg_type}",
+                }
+            )
 
     async def _send_json(self, msg: dict) -> None:
         _LOG.debug("Send json: %s", msg)
@@ -234,6 +420,8 @@ class RemoteWebsocket:
         kind = msg.get("kind", "")
         if kind == "event" and (callback_queue := self.callback_queues.get(msg_type)):
             callback_queue.put_nowait(msg)
+        elif kind == "req":
+            asyncio.create_task(self._handle_request(msg))
         else:
             uid = msg.get("req_id", None)
             if uid is None:
@@ -328,21 +516,53 @@ class RemoteInterface(tk.Tk):
         # self.container.pack(fill="both", expand=True)
         self._left_frame = ttk.Frame(self, width=300, height=600)
         self._left_frame.pack(side="left", fill="both", padx=10, pady=5, expand=True)
+        self._left_frame.grid_columnconfigure(0, weight=1)
+        self._left_frame.grid_columnconfigure(1, weight=1)
+        self._left_frame.grid_columnconfigure(2, weight=1)
         # self._left_frame.grid(row=0, column=3, padx=10, pady=5)
         self._right_frame = ttk.Frame(self, width=650, height=600)
         self._right_frame.pack(side="right", fill="both", padx=10, pady=5, expand=True)
         self._image_label = ttk.Label(self._right_frame, text="Artwork")
         self._image_label.pack(anchor="w")
+        tool_bar = ttk.Frame(self._right_frame, width=650, height=40)
+        self._title_field = ttk.Label(tool_bar, text="Title")
+        self._title_field.pack(anchor="w", pady=(0, 10))
+        self._artist = ttk.Label(tool_bar, text="Artist")
+        self._artist.pack(anchor="w", pady=(0, 10))
+        self._state = ttk.Label(tool_bar, text="State")
+        self._state.pack(anchor="w", pady=(0, 10))
+        self._progress = ttk.Progressbar(
+            tool_bar, orient="horizontal", length=200, mode="determinate", takefocus=True, maximum=100
+        )
+        self._progress["value"] = 0
+        self._progress.pack(side="left", fill="x", expand=True)
+        self._progress_label = ttk.Label(tool_bar, text="00:00:00")
+        self._progress_label.pack(side="right", fill="x", expand=True)
+        tool_bar.pack(side="bottom", fill="x", expand=True)
         # self._right_frame.grid(row=0, column=1, padx=10, pady=5)
 
-        self._title_field = ttk.Label(self._left_frame, text="Title")
-        self._title_field.grid(row=self._row, column=0, columnspan=3)  # pack(anchor="w", pady=(0, 10))
+        self._media_browse_button = ttk.Button(
+            self._left_frame, text="Browse media", command=lambda: self.media_browse_open()
+        )
+        self._media_browse_window: tk.Toplevel | None = None
+        self._media_browse_button.grid(row=self._row, column=0)
+        self._media_browse_media_id: str | None = None
+        self._media_browse_media_type: str | None = None
+        self._media_browse_page: int = 1
+        self._media_browse_limit: int = BROWSING_PAGINATION
+        self._media_browse_count = 0
+        self._media_browse_items: list[dict[str, Any]] | None = None
         self._row += 1
-        self._artist = ttk.Label(self._left_frame, text="Artist")
-        self._artist.grid(row=self._row, column=0, columnspan=3)  # .pack(anchor="w", pady=(0, 10))
+
+        label = ttk.Label(self._left_frame, text="Media Players")
+        label.grid(row=self._row, column=0, columnspan=1)
+        self._media_players = ttk.Combobox(self._left_frame, state="readonly")
+        self._media_players.bind(
+            "<<ComboboxSelected>>",
+            lambda event, cmd_id="select_option": self.change_media_player(event),
+        )
+        self._media_players.grid(row=self._row, column=1, columnspan=2)
         self._row += 1
-        self._state = ttk.Label(self._left_frame, text="State")
-        self._state.grid(row=self._row, column=0, columnspan=2)  # .pack(anchor="w", pady=(0, 10))
         self._volume = ttk.Label(self._left_frame, text="Volume")
         self._volume.grid(row=self._row, column=2)  # .pack(anchor="w", pady=(0, 10))
         self._row += 1
@@ -389,35 +609,53 @@ class RemoteInterface(tk.Tk):
         self._info_label = ttk.Label(self._left_frame, text="")
         self._info_label.grid(row=self._row, column=0, columnspan=3)
         self._row += 1
-        self._loop = asyncio.get_running_loop()
+        self._loop = asyncio.get_event_loop()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after(50, self.poll_queue)
         self._photo: tk.PhotoImage | None = None
         self._artwork: ttk.Label | None = None
-        self._events = AsyncIOEventEmitter(self._loop)
+        self._events = AsyncIOEventEmitter(asyncio.get_event_loop())
+        self._position = 0
+        self._duration = 0
+        self._media_position_task: Future | None = None
+        self._browsing_support = False
+
+    @property
+    def media_player_entity(self) -> dict[str, Any] | None:
+        for entity in self._worker._entities:
+            if entity.get("entity_type", "") != "media_player":
+                continue
+            name = get_entity_name(entity)
+            if self._media_players.get() == name:
+                return entity
+        return None
 
     def set_worker(self, worker: Any) -> None:
         self._worker = worker
 
-    def media_player_command(self, cmd_id: str) -> None:
+    def media_player_command(self, cmd_id: str, params: dict[str, Any] | None = None) -> None:
         _LOG.debug("Media Player Command %s", cmd_id)
         if self._worker is None:
             _LOG.error("Media Player Command undefined worker")
             return
-        entity_id = next(
-            (x.get("entity_id", "") for x in self._worker._entities if x.get("entity_type", "") == "media_player")
-        )
-        if entity_id is None:
+        # entity_id = next(
+        #     (x.get("entity_id", "") for x in self._worker._entities if x.get("entity_type", "") == "media_player")
+        # )
+        media_player_entity = self.media_player_entity
+        if media_player_entity is None:
             _LOG.error("No Media Player entity not found for command %s (%s)", cmd_id, self._worker.entity_ids)
             return
+        entity_id = media_player_entity.get("entity_id")
         try:
+            if params is None:
+                params = {}
             asyncio.run_coroutine_threadsafe(
                 self.send_command(
                     {
                         "cmd_id": cmd_id,
                         "entity_id": entity_id,
                         "entity_type": "media_player",
-                        "params": {},
+                        "params": params,
                     }
                 ),
                 self._worker._loop,
@@ -462,6 +700,7 @@ class RemoteInterface(tk.Tk):
                 _LOG.error("Command error : %s", result)
                 self.update()
             else:
+                self._info_label["text"] = f"Command succeeded"
                 _LOG.debug("Command result : %s", result)
 
         except Exception as ex:
@@ -482,12 +721,15 @@ class RemoteInterface(tk.Tk):
         self.after(50, self.poll_queue)
 
     def load_image(self, url: str) -> None:
+        if self._artwork and (url is None or url == ""):
+            self._artwork.configure(image="")
+            return
         try:
             _LOG.debug("Loading new image from URL: %s", url)
             self._photo = load_image_from_url(url)
             if self._artwork is None:
                 self._artwork = ttk.Label(self._right_frame)
-                self._artwork.pack(anchor="w", fill="both", expand=True)
+                self._artwork.pack(anchor="w", side="top", fill="both", expand=True)
             self._artwork.configure(image=self._photo)
             self.update()
         except Exception as e:
@@ -509,34 +751,263 @@ class RemoteInterface(tk.Tk):
         self._volume["text"] = volume
         self.update()
 
-    def set_sensor(self, entity_id: str, name: str, value: str) -> None:
-        _LOG.debug("Setting sensor %s %s", entity_id, value)
+    def browsing_support(self, value: bool):
+        self._browsing_support = value
+        self.update()
+
+    async def update_position_task(self):
+        while True:
+            await asyncio.sleep(1)
+            entity = self.media_player_entity
+            if entity is None:
+                _LOG.debug("Stopping update position task, no media entity")
+                self._media_position_task = None
+                return
+            attributes = self._worker._attributes.get(entity.get("entity_id"), {})
+            state = attributes.get("state", "")
+            if state == "PLAYING":
+                self._ui_queue.put(lambda: self.update_position())
+            else:
+                _LOG.debug("Stopping update position task, media is not playing")
+                self._media_position_task = None
+                return
+
+    # @debounce(1)
+    def update_position(self):
+        entity = self.media_player_entity
+        if entity is None:
+            _LOG.debug("Update position : no media entity")
+            return
+
+        attributes = self._worker._attributes.get(entity.get("entity_id"), {})
+        position = attributes.get("media_position", 0)
+        duration = attributes.get("media_duration", 0)
+        state = attributes.get("state", "")
+        media_position_updated_at = attributes.get("media_position_updated_at", None)
+        if media_position_updated_at is None:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            media_position_updated_at = now.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+            attributes["media_position_updated_at"] = media_position_updated_at
+        if state == "PLAYING":
+            try:
+                offset = datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.strptime(
+                    media_position_updated_at, "%Y-%m-%dT%H:%M:%S.%f%z"
+                )
+                position += offset.total_seconds()
+            except Exception as ex:
+                _LOG.error("Update position error : %s", ex)
+        # position = self._position
+        if position < 0:
+            position = 0
+        # duration = self._duration
+        if duration < 0:
+            duration = 0
+
+        self._progress_label["text"] = (
+            f"{time.strftime('%H:%M:%S', time.gmtime(position))} / {time.strftime('%H:%M:%S', time.gmtime(duration))}"
+        )
+        self.update()
+        if duration <= 0 or duration < position:
+            self._progress["value"] = 0
+        else:
+            self._progress["value"] = abs(int(position * 100 / duration))
+        self.update()
+        if state == "PLAYING" and (self._media_position_task is None or self._media_position_task.done()):
+            self._media_position_task = asyncio.run_coroutine_threadsafe(
+                self.update_position_task(),
+                self._worker._loop,
+            )
+
+    def set_position(self, position: int) -> None:
+        # _LOG.debug("Setting position %s", position)
+        self._position = position
+        self.update_position()
+
+    def set_duration(self, duration: int) -> None:
+        # _LOG.debug("Setting duration %s", duration)
+        self._duration = duration
+        self.update_position()
+
+    def set_sensor(self, entity_id: str, name: str, value: str, state: str) -> None:
+        # _LOG.debug("Setting sensor %s %s", entity_id, value)
         if entity_id not in self._sensors:
             label = self._sensors[entity_id] = ttk.Label(self._left_frame, text="")
-            label.grid(row=self._row, column=0, columnspan=3)
+            label.grid(row=self._row, column=0, columnspan=3, sticky="we")
             self._row += 1
             self._sensors[entity_id] = label
-        self._sensors[entity_id]["text"] = f"{name}: {value}"
+        self._sensors[entity_id]["text"] = f"{name}({state}): {value}"
         self.update()
 
     def set_selector(self, entity_id: str, name: str, selector: Selector) -> None:
         _LOG.debug("Setting selector %s %s", entity_id, selector)
         if entity_id not in self._selectors:
-            label = ttk.Label(self._left_frame, text=f"{name} :")
-            label.grid(row=self._row, column=0, columnspan=3)
-            self._row += 1
-            combo = self._selectors[entity_id] = ttk.Combobox(self._left_frame, state="readonly")
+            label = ttk.Label(self._left_frame, text=f"{name} :", justify="left", anchor="w")
+            label.grid(row=self._row, column=0, sticky="we")
+            # self._row += 1
+            combo = self._selectors[entity_id] = ttk.Combobox(self._left_frame, state="readonly", justify="left")
             combo.bind(
                 "<<ComboboxSelected>>",
                 lambda event, eid=entity_id, cmd_id="select_option": self.selector_command(event, eid, cmd_id),
             )
-            combo.grid(row=self._row, column=0, columnspan=3)
+            combo.grid(row=self._row, column=1, columnspan=2, sticky="we")
             self._row += 1
             self._selectors[entity_id] = combo
         combo = self._selectors[entity_id]
         combo["values"] = selector.options
         combo.set(selector.current_option)
         self.update()
+
+    def set_media_players(self, entity_names: list[str]) -> None:
+        _LOG.debug("Setting media players list %s", entity_names)
+        self._media_players["values"] = entity_names
+        self.update()
+
+    def set_media_player(self, entity_id: str):
+        self._media_players.set(entity_id)
+        self.update()
+
+    def get_media_player(self) -> str:
+        return self._media_players.get()
+
+    def change_media_player(self, event: Any):
+        new_entity = event.widget.get()
+        self._worker.change_media_player(new_entity)
+
+    async def browse_media(self, entity_id):
+        results = await self._worker.browse_media(
+            entity_id,
+            self._media_browse_media_id,
+            self._media_browse_media_type,
+            {
+                "page": self._media_browse_page,
+                "limit": self._media_browse_limit,
+            },
+        )
+        print_json(json=json.dumps(results))
+        if results and (msg_data := results.get("msg_data", None)):
+            pagination = msg_data.get("pagination", None)
+            media = msg_data.get("media", None)
+            if media is None or pagination is None:
+                return
+            self._media_browse_items = media.get("items", [])
+            self._media_browse_page = pagination.get("page", 1)
+            self._media_browse_limit = pagination.get("limit", BROWSING_PAGINATION)
+            self._media_browse_count = pagination.get("count", 0)
+            self.update_browsing_grid()
+
+    def browse(self, event: Any, item: dict[str, Any]):
+        if item.get("can_browse", False) is False:
+            if item.get("can_play", False):
+                self.media_player_command(
+                    "play_media",
+                    {"media_id": item.get("media_id", ""), "media_type": item.get("media_type", "")},
+                )
+            return
+        entity_id = self._worker.get_media_player_entity_id()
+        self._media_browse_page = 1
+        self._media_browse_limit = BROWSING_PAGINATION
+        self._media_browse_count = 0
+        self._media_browse_media_id = item.get("media_id", "")
+        self._media_browse_media_type = item.get("media_type", "")
+
+        asyncio.run_coroutine_threadsafe(
+            self.browse_media(entity_id),
+            self._worker._loop,
+        )
+
+    def paging(self, page: int):
+        self._media_browse_page = page
+        entity_id = self._worker.get_media_player_entity_id()
+        asyncio.run_coroutine_threadsafe(
+            self.browse_media(entity_id),
+            self._worker._loop,
+        )
+
+    async def load_item_image_url(self, button: ttk.Button, item: dict[str, Any]):
+        try:
+            photo = load_image_from_url(item.get("thumbnail"), max_size=(BROWSING_CELL_WIDTH, BROWSING_CELL_WIDTH))
+            button.configure(image=photo, compound="top")
+            button.image = photo
+        except Exception as e:
+            _LOG.exception("Image load error %s : %s", item.get("thumbnail"), e)
+
+    def update_browsing_grid(self):
+        for widget in self._media_browse_window.winfo_children():
+            widget.destroy()
+        row = 0
+        column = 0
+
+        button = ttk.Button(
+            self._media_browse_window,
+            text="<<",
+            command=lambda: self.paging(self._media_browse_page - 1),
+        )
+        button.grid(row=row, column=column)
+        column += 1
+        if self._media_browse_page == 1:
+            button.configure(state="disabled")
+        label = ttk.Label(
+            self._media_browse_window,
+            text=f"{self._media_browse_page} / {1+int(self._media_browse_count / BROWSING_PAGINATION)} ({self._media_browse_count})",
+        )
+        label.grid(row=row, column=column, columnspan=2)
+        column += 1
+        button = ttk.Button(
+            self._media_browse_window,
+            text=">>",
+            command=lambda: self.paging(self._media_browse_page + 1),
+        )
+        button.grid(row=row, column=column)
+        if self._media_browse_count == 0 or self._media_browse_count <= BROWSING_PAGINATION:
+            button.configure(state="disabled")
+        column += 1
+        row += 1
+        column = 0
+
+        for item in self._media_browse_items:
+            button = ttk.Button(
+                self._media_browse_window,
+                text=item.get("title"),
+                width=BROWSING_CELL_WIDTH,
+                command=lambda item=item.copy(): self.browse(None, item),
+                # height=200,
+            )
+            # button.bind("<Button-1>", lambda e, item=item.copy(): self.browse(e, item))
+            if item.get("thumbnail", None):
+                asyncio.run_coroutine_threadsafe(
+                    self.load_item_image_url(button, item),
+                    self._worker._loop,
+                )
+            button.grid(row=row, column=column, sticky="we")
+            column += 1
+            if column == 4:
+                column = 0
+                row += 1
+        self.update()
+
+    def media_browse_open(self):
+        entity_id = self._worker.get_media_player_entity_id()
+        if entity_id is None:
+            return
+        if self._media_browse_window is None or not self._media_browse_window.winfo_exists():
+            self._media_browse_window = tk.Toplevel(self, width=600, height=600)
+            self._media_browse_window.grid_columnconfigure(0, weight=1)
+            self._media_browse_window.grid_columnconfigure(1, weight=1)
+            self._media_browse_window.grid_columnconfigure(2, weight=1)
+            self._media_browse_window.grid_columnconfigure(3, weight=1)
+            self._media_browse_media_id = None
+            self._media_browse_media_type = None
+            self._media_browse_page = 1
+            self._media_browse_limit = BROWSING_PAGINATION
+            self._media_browse_count = 0
+            self._media_browse_items = None
+
+        asyncio.run_coroutine_threadsafe(
+            self.browse_media(entity_id),
+            self._worker._loop,
+        )
+        # else:
+        #     self._media_browse_window.destroy()
 
 
 class WorkerThread(threading.Thread):
@@ -548,9 +1019,10 @@ class WorkerThread(threading.Thread):
         self._loop_ready = threading.Event()
         self._ws: RemoteWebsocket | None = None
         self._entity_ids: list[str] = []
-        self._sensors: dict[str, str] = {}
+        self._sensors: dict[str, dict[str, Any]] = {}
         self._selectors: dict[str, Selector] = {}
         self._entities: list[dict[str, Any]] = []
+        self._attributes: dict[str, dict[str, Any]] = {}
         # self.start()
 
     @property
@@ -575,30 +1047,71 @@ class WorkerThread(threading.Thread):
             self._loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
             self._loop.close()
 
+    def get_entity(self, entity_id: str) -> dict[str, Any] | None:
+        res = [x for x in self._entities if x.get("entity_id") == entity_id]
+        if len(res) > 0:
+            return res[0]
+        return None
+
+    def has_feature(self, entity_id: str, feature: str) -> bool:
+        entity = self.get_entity(entity_id)
+        if entity is None:
+            return False
+        if feature in entity["features"]:
+            return True
+        return False
+
     async def send_command(self, command: dict[str, Any]) -> dict[str, Any] | None:
         if self._ws is None:
             _LOG.error("Command %s error : no websocket connected", command)
             return None
         return await self._ws.send_command(command)
 
-    async def entity_changed(self, msg: dict[str, Any]) -> None:
-        _LOG.debug("Entity changed : %s", msg)
-        updated_data: dict[str, Any] | None = msg.get("msg_data", None)
-        if updated_data is None:
-            return
-        print_json(json=json.dumps(msg))
+    async def browse_media(
+        self,
+        entity_id: str,
+        media_id: str | None = None,
+        media_type: str | None = None,
+        paging: dict[str, Any] | None = None,
+    ):
+        if self._ws is None:
+            _LOG.error("Browse %s error : no websocket connected", media_id)
+            return None
+        return await self._ws.browse_media_entity(entity_id, media_id, media_type, paging)
+
+    def get_media_player_entity(self) -> dict[str, Any] | None:
+        media_entity = self._interface.get_media_player()
+        if media_entity is None or media_entity == "":
+            return None
+        for entity in self._entities:
+            name = get_entity_name(entity)
+            if name == media_entity:
+                return entity
+        return None
+
+    def get_media_player_entity_id(self) -> str | None:
+        entity = self.get_media_player_entity()
+        if entity:
+            return entity.get("entity_id")
+        return None
+
+    async def update_attributes(self, updated_data: dict[str, Any]):
         if "attributes" not in updated_data:
             return
         attributes: dict[str, Any] = updated_data["attributes"]
         entity_id = updated_data["entity_id"]
-        if (
-            updated_data.get("entity_type", "") == "sensor"
-            and entity_id in self._sensors
-            and (value := attributes.get("value", None))
-        ):
-            value = attributes.get("value", None)
+        if self._attributes.get(entity_id) is None:
+            self._attributes[entity_id] = {}
+        self._attributes[entity_id] = self._attributes[entity_id] | attributes
+        if updated_data.get("entity_type", "") == "sensor" and entity_id in self._sensors:
+            current_attributes = self._sensors[entity_id]
+            name = attributes.get("name", current_attributes.get("name", ""))
+            value = attributes.get("value", current_attributes.get("value", ""))
+            state = attributes.get("state", current_attributes.get("state", ""))
+            current_attributes["value"] = value
+            current_attributes["state"] = state
             self._interface._ui_queue.put(
-                lambda eid=entity_id, name=self._sensors[entity_id]: self._interface.set_sensor(eid, name, value)
+                lambda eid=entity_id, n=name, v=value, s=state: self._interface.set_sensor(eid, n, v, s)
             )
             return
 
@@ -615,6 +1128,24 @@ class WorkerThread(threading.Thread):
 
         if updated_data.get("entity_type", "") != "media_player":
             return
+        # Find selected media entity and update only this one
+        media_entity = self._interface.get_media_player()
+        if media_entity is None or media_entity == "":
+            return
+        match = False
+        for entity in self._entities:
+            local_entity_id = entity.get("entity_id")
+            if local_entity_id != entity_id:
+                continue
+            name = get_entity_name(entity)
+            if name == media_entity:
+                match = True
+                break
+        if not match:
+            return
+        _LOG.debug("Current media entity %s (%s)", media_entity, entity_id)
+
+        # _LOG.debug("Update media entity %s", entity_id)
         if "media_image_url" in attributes:
             self._interface._ui_queue.put(lambda u=attributes["media_image_url"]: self._interface.load_image(u))
         if "media_title" in attributes:
@@ -623,8 +1154,43 @@ class WorkerThread(threading.Thread):
             self._interface._ui_queue.put(lambda u=attributes["media_artist"]: self._interface.set_artist(u))
         if "state" in attributes:
             self._interface._ui_queue.put(lambda u=attributes["state"]: self._interface.set_state(u))
+            self._interface._ui_queue.put(lambda: self._interface.update_position())
         if "volume" in attributes:
             self._interface._ui_queue.put(lambda u=attributes["volume"]: self._interface.set_volume(u))
+        if "media_position" in attributes:
+            self._interface._ui_queue.put(lambda u=attributes["media_position"]: self._interface.set_position(u))
+        if "media_duration" in attributes:
+            self._interface._ui_queue.put(lambda u=attributes["media_duration"]: self._interface.set_duration(u))
+        await asyncio.sleep(0)
+
+    async def entity_changed(self, msg: dict[str, Any]) -> None:
+        _LOG.debug("Entity changed : %s", msg)
+        updated_data: dict[str, Any] | None = msg.get("msg_data", None)
+        if updated_data is None:
+            return
+        print_json(json=json.dumps(msg))
+        await self.update_attributes(updated_data)
+
+    def change_media_player(self, new_entity: str):
+        self._interface.set_title("")
+        self._interface.set_artist("")
+        self._interface.set_volume(0)
+        self._interface.load_image("")
+        self._interface.update_position()
+        self._interface.browsing_support(False)
+        for entity in self._entities:
+            entity_id = entity.get("entity_id")
+            name = get_entity_name(entity)
+            if name == new_entity:
+                attributes = self._attributes.get(entity_id, None)
+                if attributes is None:
+                    return
+                _LOG.debug("Reloading attributes for new entity %s : %s", entity_id, attributes)
+                self._interface.browsing_support(self.has_feature(entity_id, "browse_media"))
+                asyncio.run_coroutine_threadsafe(
+                    self.update_attributes(entity | {"attributes": attributes}),
+                    self._loop,
+                )
 
     async def launch_server(self):
         _LOG.debug("Start connection")
@@ -641,28 +1207,35 @@ class WorkerThread(threading.Thread):
             print_json(json=json.dumps(data))
             self._entity_ids = []
             self._entities = []
+            media_players: list[str] = []
             for entity in data["msg_data"]["available_entities"]:
                 self._entities.append(entity)
                 entity_id: str = entity["entity_id"]
                 self._entity_ids.append(entity_id)
-                if entity_id.startswith("media_player"):
-                    media_player_entity_id = entity_id
+                if entity.get("entity_type", "") == "media_player":
+                    media_players.append(get_entity_name(entity))
                 if entity.get("entity_type", "") == "sensor":
-                    self._sensors[entity_id] = entity["name"].get("en", entity_id)
+                    self._sensors[entity_id] = {"name": entity["name"].get("en", entity_id), "state": ""}
                 if entity.get("entity_type", "") == "select":
                     self._selectors[entity_id] = Selector(
                         name=entity["name"].get("en", entity_id), current_option="", options=[]
                     )
+            self._interface.set_media_players(media_players)
+            if len(media_players) > 0:
+                self._interface.set_media_player(media_players[0])
 
             data = await self._ws.subscribe_entities(self._entity_ids)
             _LOG.debug("Subscribed entities : %s", data)
-            await asyncio.sleep(5)
-            data = await self._ws.send_command(
-                {"cmd_id": "on", "entity_id": media_player_entity_id, "entity_type": "media_player", "params": {}}
-            )
-            _LOG.debug("Command result : %s", data)
+            await asyncio.sleep(2)
+            # data = await self._ws.send_command(
+            #     {"cmd_id": "on", "entity_id": media_player_entity_id, "entity_type": "media_player", "params": {}}
+            # )
+            # _LOG.debug("Command result : %s", data)
             data = await self._ws.get_entity_states()
             _LOG.debug("Entities states : %s", data)
+            for entity_state in data["msg_data"]:
+                self._loop.create_task(self.update_attributes(entity_state))
+
         except Exception as e:
             _LOG.exception("Error launching websocket server %s", e)
 
@@ -689,9 +1262,5 @@ if __name__ == "__main__":
     ch.setFormatter(formatter)
     logging.basicConfig(handlers=[ch])
     logging.getLogger(__name__).setLevel(logging.DEBUG)
-    logging.getLogger("client").setLevel(logging.DEBUG)
-    logging.getLogger("media_player").setLevel(logging.DEBUG)
-    logging.getLogger("remote").setLevel(logging.DEBUG)
-
     logging.getLogger(__name__).setLevel(logging.DEBUG)
     _LOOP.run_until_complete(main())

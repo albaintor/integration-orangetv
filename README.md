@@ -3,7 +3,7 @@
 Using (modified) code from [Orange Home Assistant component](https://github.com/AkA57/liveboxtvuhd)
 and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
-The driver discovers Orange TV STB on the network. A media player entity is exposed to the core.
+The driver discovers Orange TV STB on the network. It can support multiple devices and exposes the following entities : media player, remote, selectors, sensors.
 
 **Supported attributes:**
 
@@ -38,6 +38,11 @@ The driver discovers Orange TV STB on the network. A media player entity is expo
 - Current channel name
 - Current program name from EPG
 - Current episode name from EPG
+
+**Media browsing**
+
+Media browsing is supported through the list of channels or genres. A selected genre list the corresponding TV programs.
+Entering into a channel will list the current and next programs. Selecting one will switch to this channel.
 
 ## Usage
 

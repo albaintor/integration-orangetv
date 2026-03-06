@@ -5,6 +5,8 @@ Static file of the integration driver.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
+import dataclasses
+from dataclasses import dataclass, field, fields
 from datetime import timedelta
 
 __version__ = "1.0.3"
@@ -12,6 +14,35 @@ __version__ = "1.0.3"
 from enum import Enum
 
 from ucapi.ui import Buttons, DeviceButtonMapping, UiPage
+
+
+@dataclass
+class BrowseMediaItem:
+    """Media item object."""
+
+    title: str
+    media_class: str
+    media_type: str
+    media_id: str
+    can_browse: bool = field(default=False)
+    can_play: bool = field(default=False)
+    can_search: bool = field(default=False)
+    artist: str | None = field(default=None)
+    album: str | None = field(default=None)
+    thumbnail: str | None = field(default=None)
+    duration: int | None = field(default=None)
+    items: list["BrowseMediaItem"] | None = field(default=None)
+
+    # pylint: disable=R0801
+    def __post_init__(self):
+        """Apply default values on missing fields."""
+        for attribute in fields(self):
+            # If there is a default and the value of the field is none we can assign a value
+            if (
+                not isinstance(attribute.default, dataclasses.MISSING.__class__)
+                and getattr(self, attribute.name) is None
+            ):
+                setattr(self, attribute.name, attribute.default)
 
 
 class OrangeSensors(str, Enum):
@@ -41,6 +72,19 @@ DEFAULT_COUNTRY = "france"
 OPERATION_INFORMATION = "10"
 OPERATION_CHANNEL_CHANGE = "09"
 OPERATION_KEYPRESS = "01"
+
+EPG_GENRES = [
+    "Autre",
+    "Divertissement",
+    "Documentaire",
+    "Film",
+    "Jeunesse",
+    "Info-Mété",
+    "Magazine",
+    "Musique",
+    "Série",
+    "Sport",
+]
 
 KEYS = {
     "POWER": 116,

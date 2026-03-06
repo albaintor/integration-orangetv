@@ -6,6 +6,7 @@ Media-player entity functions.
 """
 
 import logging
+from dataclasses import asdict
 from typing import Any
 
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
@@ -53,6 +54,11 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             Features.CHANNEL_SWITCHER,
             Features.MEDIA_POSITION,
             Features.MEDIA_DURATION,
+            "play_media",
+            # "clear_playlist",
+            "browse_media",
+            # "search_media", # TODO to implement when ready
+            # "search_media_classes", # TODO to implement when ready
         ]
         # pylint: disable=R0801
         attributes = {
@@ -164,6 +170,21 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             res = await self._device.press_key("8")
         elif cmd_id == Commands.DIGIT_9:
             res = await self._device.press_key("9")
+        elif cmd_id == "play_media":  # TODO to be updated when UCAPI
+            res = await self._device.set_channel_by_name(params.get("media_id"))
         else:
             return StatusCodes.NOT_IMPLEMENTED
         return res
+
+    # pylint: disable=W0613
+    async def browse_media(
+        self,
+        params: dict[str, Any],
+        *,
+        websocket: Any,
+    ) -> dict[str, Any] | StatusCodes:
+        """Browse media command."""
+        (browse_media_item, paging) = await self._device.browse_media(
+            params.get("media_id", None), params.get("media_type", None), params.get("paging", None)
+        )
+        return {"media": asdict(browse_media_item), "pagination": paging}
