@@ -900,7 +900,7 @@ class OrangeTVClient:
             return None
 
     def get_filtered_entries(
-        self, epg_data: dict[str, list[dict[str, Any]]], paging: dict[str, Any] | None
+        self, epg_data: dict[str, list[dict[str, Any]]], paging: dict[str, Any] | None, parent_path: str | None = None
     ) -> list[BrowseMediaItem]:
         """Return filtered entries from pagination."""
         if paging is None:
@@ -927,11 +927,15 @@ class OrangeTVClient:
             channel = self.get_channel_from_epg_id(epg_entry.get("channelId", ""))
             channel = channel.get("name", "") if channel else epg_entry.get("channelId", "")
 
-            title = f"{channel if channel else ''} {epg_entry.get('title', '')}"
+            title = f"{channel if channel else ''} - {epg_entry.get('title', '')}"
             image = self.get_media_image_url(epg_entry)
+            if parent_path is None:
+                media_id = epg_entry.get("channelId", "0")
+            else:
+                media_id = parent_path + "/" + epg_entry.get("channelId", "0")
             result.append(
                 BrowseMediaItem(
-                    media_id=epg_entry.get("channelId", "0"),
+                    media_id=media_id,
                     title=title,
                     media_type="channel",
                     media_class="video",
@@ -1086,9 +1090,13 @@ class OrangeTVClient:
                 return result, paging
 
             if media_type == "genre":
+                if "/" in media_id:
+                    genre = media_id.rsplit("/", 1)[-1]
+                else:
+                    genre = media_id
                 result = BrowseMediaItem(
                     media_id=media_id,
-                    title=media_id,
+                    title=genre,
                     media_class="genre",
                     media_type="genre",
                     can_browse=True,
@@ -1108,18 +1116,45 @@ class OrangeTVClient:
                             items=[],
                         )
                     )
-                epg_channels = self.get_epg_from_genre(self._epg_data, media_id)
-                result.items.extend(self.get_filtered_entries(epg_channels, paging))
+
+                epg_channels = self.get_epg_from_genre(self._epg_data, genre)
+                result.items.extend(self.get_filtered_entries(epg_channels, paging, f"orange://genres/{genre}"))
                 paging["count"] = len(epg_channels.keys())
                 if paging.get("page", 1) == 1:
                     paging["count"] += 1
                 return result, paging
 
-            epg_channel = self._epg_data.get(media_id, None)
-            channel = self.get_channel_from_epg_id(media_id)
+            # Else channel id
+            parent_id = "orange://channels"
+            parent_type = "channels"
+            if "/" in media_id:
+                url = media_id.split("/")
+                parent_id = media_id[: media_id.rfind("/")]
+                channel_id = url[len(url) - 1]
+                if "orange://genre" in media_id:
+                    parent_type = "genre"
+            else:
+                channel_id = media_id
+
+            epg_channel = self._epg_data.get(channel_id, None)
+            if epg_channel is None:
+                paging["count"] = 1
+                return (
+                    BrowseMediaItem(
+                        media_id=parent_id,
+                        title="..",
+                        media_class=parent_type,
+                        media_type=parent_type,
+                        can_browse=True,
+                        can_search=True,
+                        items=[],
+                    ),
+                    paging,
+                )
+            channel = self.get_channel_from_epg_id(channel_id)
             result = BrowseMediaItem(
-                media_id=media_id,
-                title=channel,
+                media_id=channel_id,
+                title=channel.get("name"),
                 media_type="channel",
                 media_class="video",
                 can_browse=True,
@@ -1129,10 +1164,10 @@ class OrangeTVClient:
             if paging.get("page", 1) == 1:
                 result.items.append(
                     BrowseMediaItem(
-                        media_id="orange://channels",
+                        media_id=parent_id,
                         title="..",
-                        media_class="channels",
-                        media_type="video",
+                        media_class=parent_type,
+                        media_type=parent_type,
                         can_browse=True,
                         can_search=True,
                         items=[],

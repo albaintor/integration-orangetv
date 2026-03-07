@@ -43,6 +43,11 @@ The driver discovers Orange TV STB on the network. It can support multiple devic
 
 Media browsing is supported through the list of channels or genres. A selected genre list the corresponding TV programs.
 Entering into a channel will list the current and next programs. Selecting one will switch to this channel.
+You can customize the default entry of media browsing :
+- Empty media id : 2 sections channels and genres
+- Media id = `orange://channels` : channels list
+- Media id = `orange://genres` : list of genres
+- Media id = `orange://genres/{genre name}` + media type = `genre` : programs list of the given genre
 
 ## Usage
 
