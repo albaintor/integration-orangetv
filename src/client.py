@@ -1079,7 +1079,7 @@ class OrangeTVClient:
                     items=[],
                 )
                 if paging.page == 1:
-                    paging["limit"] -= 1
+                    paging.limit -= 1
                     result.items.append(BrowseMediaItem(
                             media_id="orange://genres",
                             title="Genres",
@@ -1119,7 +1119,7 @@ class OrangeTVClient:
                     items=[],
                 )
                 # if paging.page == 1:
-                #     paging["limit"] -= 1
+                #     paging.limit -= 1
                 #     result.items.append(
                 #         BrowseMediaItem(
                 #             media_id="orange://genres",
