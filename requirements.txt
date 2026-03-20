@@ -1,10 +1,10 @@
-pyee~=13.0.0
+pyee~=13.0.1
 ucapi
- file:./src/ucapi-0.5.3.dev11+ge80291de2.d20260204-py3-none-any.whl
+ file:./src/ucapi-0.5.3.dev33+gde39fa7bb.d20260320-py3-none-any.whl
 python-Levenshtein~=0.27.3
 fuzzywuzzy~=0.18.0
 httpx~=0.28.1
 defusedxml~=0.7.1
 aiohttp~=3.13.3
 python-dateutil~=2.9.0
-certifi~=2026.1.4
+certifi~=2026.2.25

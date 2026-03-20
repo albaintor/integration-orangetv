@@ -34,7 +34,10 @@ from aiohttp.web_exceptions import HTTPRequestTimeout
 from dateutil import tz
 from fuzzywuzzy import process
 from pyee.asyncio import AsyncIOEventEmitter
-from ucapi.media_player import Attributes, MediaType, States
+from ucapi.api_definitions import BrowseMediaItem
+from ucapi.api_definitions import MediaContentType as MediaType
+from ucapi.api_definitions import Pagination, PagingOptions
+from ucapi.media_player import Attributes, States
 from ucapi.select import Attributes as SelectAttributes
 from ucapi.select import States as SelectStates
 
@@ -49,6 +52,8 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# pylint: disable=C0302,W1405
 
 
 class Events(StrEnum):
@@ -67,6 +72,7 @@ _P = ParamSpec("_P")
 CONNECTION_RETRIES = 10
 UPDATE_LOCK_TIMEOUT = 10.0
 ERROR_OS_WAIT = 0.5
+EPG_REFRESH = 10 * 60
 
 
 def debounce(wait):
@@ -125,7 +131,7 @@ def _get_key_name(key_id):
 class OrangeTVClient:
     """Client for Orange TV STBs."""
 
-    # pylint: disable = E0606
+    # pylint: disable = E0606, R0915
 
     def __init__(self, device_config: OrangeConfigDevice, timeout=3, refresh_frequency=60, device_id=None):
         """Create a Orange STB instance."""
@@ -175,13 +181,15 @@ class OrangeTVClient:
         self._event_loop = asyncio.get_event_loop() or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._event_loop)
         self._timezone = tz.gettz(TIMEZONE)
-        self._epg_data = None
+        self._epg_channel_data = None
         self._update_lock = Lock()
         self._update_lock_time: float = 0
         self._session: ClientSession | None = None
         self._reconnect_retry = 0
         self._update_task = None
         self._sslcontext = ssl.create_default_context(cafile=certifi.where())
+        self._epg_data: dict[str, list[dict[str, Any]]] | None = None
+        self._epg_data_timestamp = 0
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -219,7 +227,7 @@ class OrangeTVClient:
             await self._session.close()
             self._session = None
 
-    def _find_epg_entry(self, data, exact_match=False) -> any:
+    def _find_epg_entry(self, data, exact_match=False) -> dict[str, Any] | None:
         if data is None:
             return None
         now = datetime.datetime.now(self._timezone)
@@ -234,16 +242,16 @@ class OrangeTVClient:
             return data[0]
         return None
 
-    async def _get_epg_data(self, channel_id) -> any:
-        if self._epg_data is None or self._epg_data.get(channel_id, None) is None:
-            self._epg_data = await self.rq_epg(self._channel_id)
-            return self._epg_data
-        epg_data = self._epg_data.get(channel_id, None)
+    async def _get_epg_channel_data(self, channel_id) -> dict[str, Any] | None:
+        if self._epg_channel_data is None or self._epg_channel_data.get(channel_id, None) is None:
+            self._epg_channel_data = await self.get_epg(self._channel_id)
+            return self._epg_channel_data
+        epg_data = self._epg_channel_data.get(channel_id, None)
         found_data = self._find_epg_entry(epg_data, True)
         if found_data:
-            return self._epg_data
-        self._epg_data = await self.rq_epg(self._channel_id)
-        return self._epg_data
+            return self._epg_channel_data
+        self._epg_channel_data = await self.get_epg(self._channel_id)
+        return self._epg_channel_data
 
     async def _background_update_task(self):
         self._reconnect_retry = 0
@@ -294,6 +302,18 @@ class OrangeTVClient:
         Means that when it is called multiple times the timer is resetted  and the update method will be called once
         """
         await self.update()
+
+    def get_media_image_url(self, entry: dict[str, Any]) -> str | None:
+        """Get media image url."""
+        if self.country != "poland":
+            if entry["covers"] and len(entry["covers"]) > 1:
+                return entry["covers"][1]["url"]
+            if entry["covers"] and len(entry["covers"]) > 0:
+                return entry["covers"][0]["url"]
+        if entry.get("imagePath", None) is not None:
+            image_path = entry.get("imagePath", None)
+            return f"https://tvgo.orange.pl{image_path}"
+        return None
 
     async def update(self):
         """Update method to refresh data."""
@@ -386,7 +406,7 @@ class OrangeTVClient:
 
                     if channel_id and channel_id != 0:
                         if self.country == "france":
-                            epg_data = await self._get_epg_data(self._channel_id)
+                            epg_data = await self._get_epg_channel_data(self._channel_id)
                             if epg_data is not None and epg_data[self._channel_id]:
                                 # Show title depending of programType and current time
                                 entry = self._find_epg_entry(epg_data[self._channel_id], False)
@@ -401,19 +421,17 @@ class OrangeTVClient:
                                         self._show_episode = 0
                                     self._show_title = entry["season"]["serie"]["title"]
                                 else:
-                                    self._media_type = MediaType.TVSHOW
+                                    self._media_type = MediaType.TV_SHOW
                                     self._show_title = entry["title"]
 
                                 self._show_definition = entry["definition"]
                                 self._show_start_dt = entry["diffusionDate"]
                                 self._show_duration = entry["duration"]
-                                if entry["covers"] and len(entry["covers"]) > 1:
-                                    self._show_img = entry["covers"][1]["url"]
-                                elif entry["covers"] and len(entry["covers"]) > 0:
-                                    self._show_img = entry["covers"][0]["url"]
-
+                                image = self.get_media_image_url(entry)
+                                if image is not None:
+                                    self._show_img = image
                         elif self.country == "poland":
-                            _data2 = await self.rq_epg(self._channel_id)
+                            _data2 = await self.get_epg(self._channel_id)
                             if _data2 is not None:
                                 for epg in _data2.get("epg", None):
                                     if self._channel_id in epg.get("channelExternalId", None):
@@ -436,12 +454,11 @@ class OrangeTVClient:
                                                     self._show_episode = sch.get("episodeNumber", None)
                                                     # self._show_title = sch.get("name", None)
                                                 else:
-                                                    self._media_type = MediaType.TVSHOW
+                                                    self._media_type = MediaType.TV_SHOW
                                                     self._show_title = sch.get("name", None)
-
-                                                if sch.get("imagePath", None) is not None:
-                                                    image_path = sch.get("imagePath", None)
-                                                    self._show_img = f"https://tvgo.orange.pl{image_path}"
+                                                image = self.get_media_image_url(sch)
+                                                if image:
+                                                    self._show_img = image
                                                 break
 
                                             # update position if we have show information
@@ -484,7 +501,7 @@ class OrangeTVClient:
                 # Unknow or no channel displayed. Should be HOMEPAGE, NETFLIX, WHATEVER...
                 self._channel_id = -1
                 self._last_channel_id = self._channel_id
-                self._media_type = MediaType.TVSHOW
+                self._media_type = MediaType.TV_SHOW
                 if self._osd_context:
                     self._channel_name = self._osd_context.upper()
                 self._show_title = None
@@ -508,7 +525,7 @@ class OrangeTVClient:
                             Attributes.MEDIA_ARTIST: "",
                             Attributes.MEDIA_POSITION: 0,
                             Attributes.MEDIA_DURATION: 0,
-                            Attributes.MEDIA_TYPE: MediaType.TVSHOW,
+                            Attributes.MEDIA_TYPE: MediaType.TV_SHOW,
                             Attributes.STATE: self.state,
                             OrangeSensors.SENSOR_CHANNEL: "",
                             OrangeSensors.SENSOR_MEDIA_TITLE: "",
@@ -521,6 +538,11 @@ class OrangeTVClient:
             _LOGGER.error("[%s] Error during update %s", self._device_config.address, ex)
         self._update_lock.release()
         return _data
+
+    @property
+    def device_config(self) -> OrangeConfigDevice:
+        """Returns configuration of device."""
+        return self._device_config
 
     @property
     def attributes(self) -> dict[str, Any]:
@@ -860,11 +882,14 @@ class OrangeTVClient:
                 self._display_con_err = False
                 _LOGGER.error("Livebox request error : %s", ex)
 
-    async def rq_epg(self, channel_id):
+    async def get_epg(self, channel_id: str = None) -> dict[str, list[dict[str, Any]]] | None:
         """Request to EPG by channel ID."""
         get_params = None
         if self.country == "france":
-            get_params = OrderedDict({"groupBy": "channel", "period": "current", "epgIds": channel_id, "mco": "OFR"})
+            get_params = OrderedDict({"groupBy": "channel", "period": "current"})
+            if channel_id:
+                get_params["epgIds"] = channel_id
+            get_params["mco"] = "OFR"
         elif self.country == "poland":
             get_params = OrderedDict({"hhTech": "", "deviceCat": "otg"})
         if self._device_config.log_client:
@@ -880,3 +905,308 @@ class OrangeTVClient:
             # _LOGGER.error("EPG response: %s", errh)
             _LOGGER.exception("[%s] EPG response: %s", self._device_config.address, errh, exc_info=True, stacklevel=50)
             return None
+
+    def get_filtered_entries(
+        self, epg_data: dict[str, list[dict[str, Any]]], paging: Pagination, parent_path: str | None = None
+    ) -> list[BrowseMediaItem]:
+        """Return filtered entries from pagination."""
+        limit = paging.limit
+        start = (paging.page - 1) * limit
+        index = 0
+        result: list[BrowseMediaItem] = []
+        for channel_epg in epg_data.values():
+            if index < start:
+                index += 1
+                continue
+            if index > start + limit:
+                break
+            index += 1
+            epg_entry = self._find_epg_entry(channel_epg, True)
+            if not epg_entry:
+                epg_entry = self._find_epg_entry(channel_epg, False)
+                self._epg_data_timestamp = 0
+            if not epg_entry:
+                continue
+            channel = self.get_channel_from_epg_id(epg_entry.get("channelId", ""))
+            channel = channel.get("name", "") if channel else epg_entry.get("channelId", "")
+
+            title = f"{channel if channel else ''} - {epg_entry.get('title', '')}"
+            image = self.get_media_image_url(epg_entry)
+            if parent_path is None:
+                media_id = epg_entry.get("channelId", "0")
+            else:
+                media_id = parent_path + "/" + epg_entry.get("channelId", "0")
+            result.append(
+                BrowseMediaItem(
+                    media_id=media_id,
+                    title=title,
+                    media_type="channel",
+                    media_class="video",
+                    can_browse=True,
+                    can_search=True,
+                    thumbnail=image,
+                )
+            )
+        return result
+
+    @staticmethod
+    def get_genres_from_epg(epg_data: dict[str, list[dict[str, Any]]]) -> set[str]:
+        """Extract genres from epg data."""
+        genres: set[str] = set()
+        for epg_entry in epg_data.values():
+            for sub_entry in epg_entry:
+                genres.add(sub_entry.get("genre", ""))
+        return genres
+
+    def get_epg_from_genre(
+        self, epg_data: dict[str, list[dict[str, Any]]], genre: str
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Return matching epg entries from given genre."""
+        results: dict[str, list[dict[str, Any]]] = {}
+        for channel_id, epg_channel in epg_data.items():
+            epg_entry = self._find_epg_entry(epg_channel, False)
+            if epg_entry is None:
+                continue
+            if epg_entry.get("genre", "") == genre:
+                results[channel_id] = epg_channel
+        return results
+
+    # pylint: disable=R0911
+    async def browse_media(
+        self, media_id: str | None, media_type: str | None, paging: PagingOptions | None
+    ) -> tuple[BrowseMediaItem, Pagination] | None:
+        """Browse media."""
+        # pylint: disable=R0914
+        _LOGGER.debug("[%s] Browse media: %s %s %s", self._device_config.address, media_id, media_type, paging)
+        if self._epg_data is None or self._epg_data_timestamp < time.time() - EPG_REFRESH:
+            self._epg_data = await self.get_epg()
+            self._epg_data_timestamp = time.time()
+        try:
+            if paging is None:
+                paging = Pagination(page=1, limit=10, count=0)
+            else:
+                paging = Pagination(page=paging.page, limit=paging.limit, count=0)
+
+            if media_id == "" or media_id is None:
+                result = BrowseMediaItem(
+                    media_id="",
+                    title="Orange TV",
+                    media_class="video",
+                    media_type="video",
+                    can_browse=True,
+                    can_search=True,
+                    items=[
+                        BrowseMediaItem(
+                            media_id="orange://channels",
+                            title="Chaines",
+                            media_class="channels",
+                            media_type="channels",
+                            can_browse=True,
+                            can_search=True,
+                        ),
+                        BrowseMediaItem(
+                            media_id="orange://genres",
+                            title="Genres",
+                            media_class="genre",
+                            media_type="genre",
+                            can_browse=True,
+                            can_search=True,
+                        ),
+                    ],
+                )
+                paging.count = len(result.items)
+                return result, paging
+
+            if media_id == "orange://genres":
+                limit = paging.limit
+                start = (paging.page - 1) * limit
+                index = 0
+                genres = OrangeTVClient.get_genres_from_epg(self._epg_data)
+                result = BrowseMediaItem(
+                    media_id="orange://genres",
+                    title="Genres",
+                    media_class="genre",
+                    media_type="genre",
+                    can_browse=True,
+                    can_search=True,
+                    items=[],
+                )
+                # if paging.page == 1:
+                #     limit -= 1
+                #     result.items.append(
+                #         BrowseMediaItem(
+                #             media_id="",
+                #             title="..",
+                #             media_class="video",
+                #             media_type="video",
+                #             can_browse=True,
+                #             can_search=True,
+                #         )
+                #     )
+                for genre in genres:
+                    if index < start:
+                        index += 1
+                        continue
+                    if index > start + limit:
+                        break
+                    index += 1
+                    result.items.append(
+                        BrowseMediaItem(
+                            media_id=genre,
+                            title=genre,
+                            media_class="genre",
+                            media_type="genre",
+                            can_browse=True,
+                            can_search=True,
+                        )
+                    )
+                paging.count = len(genres)
+                if paging.page == 1:
+                    paging.count += 1
+                return result, paging
+
+            if media_id == "orange://channels":
+                result = BrowseMediaItem(
+                    media_id="orange://channels",
+                    title="Programme TV",
+                    media_class="channels",
+                    media_type="video",
+                    can_browse=True,
+                    can_search=True,
+                    items=[],
+                )
+                # if paging.page == 1:
+                #     paging["limit"] -= 1
+                #     result.items.append(
+                #         BrowseMediaItem(
+                #             media_id="",
+                #             title="..",
+                #             media_class="video",
+                #             media_type="video",
+                #             can_browse=True,
+                #             can_search=True,
+                #         )
+                #     )
+                result.items.extend(self.get_filtered_entries(self._epg_data, paging))
+                paging.count = len(self._epg_data.keys())
+                if paging.page == 1:
+                    paging.count += 1
+                return result, paging
+
+            if media_type == "genre":
+                if "/" in media_id:
+                    genre = media_id.rsplit("/", 1)[-1]
+                else:
+                    genre = media_id
+                result = BrowseMediaItem(
+                    media_id=media_id,
+                    title=genre,
+                    media_class="genre",
+                    media_type="genre",
+                    can_browse=True,
+                    can_search=True,
+                    items=[],
+                )
+                # if paging.page == 1:
+                #     paging["limit"] -= 1
+                #     result.items.append(
+                #         BrowseMediaItem(
+                #             media_id="orange://genres",
+                #             title="..",
+                #             media_class="genre",
+                #             media_type="genre",
+                #             can_browse=True,
+                #             can_search=True,
+                #             items=[],
+                #         )
+                #     )
+
+                epg_channels = self.get_epg_from_genre(self._epg_data, genre)
+                result.items.extend(self.get_filtered_entries(epg_channels, paging, f"orange://genres/{genre}"))
+                paging.count = len(epg_channels.keys())
+                if paging.page == 1:
+                    paging.count += 1
+                return result, paging
+
+            # Else channel id
+            parent_id = "orange://channels"
+            parent_type = "channels"
+            if "/" in media_id:
+                url = media_id.split("/")
+                parent_id = media_id[: media_id.rfind("/")]
+                channel_id = url[len(url) - 1]
+                if "orange://genre" in media_id:
+                    parent_type = "genre"
+            else:
+                channel_id = media_id
+
+            epg_channel = self._epg_data.get(channel_id, None)
+            if epg_channel is None:
+                paging.count = 1
+                return (
+                    BrowseMediaItem(
+                        media_id=parent_id,
+                        title="..",
+                        media_class=parent_type,
+                        media_type=parent_type,
+                        can_browse=True,
+                        can_search=True,
+                        items=[],
+                    ),
+                    paging,
+                )
+            channel = self.get_channel_from_epg_id(channel_id)
+            result = BrowseMediaItem(
+                media_id=channel_id,
+                title=channel.get("name"),
+                media_type="channel",
+                media_class="video",
+                can_browse=True,
+                can_search=True,
+                items=[],
+            )
+            # if paging.page == 1:
+            #     result.items.append(
+            #         BrowseMediaItem(
+            #             media_id=parent_id,
+            #             title="..",
+            #             media_class=parent_type,
+            #             media_type=parent_type,
+            #             can_browse=True,
+            #             can_search=True,
+            #             items=[],
+            #         )
+            #     )
+
+            for epg_entry in epg_channel:
+                title = epg_entry.get("title", "")
+                show_start_dt = epg_entry["diffusionDate"]
+                # show_duration = epg_entry["duration"]
+                show_start = datetime.datetime.fromtimestamp(show_start_dt, self._timezone)
+                # show_end = show_start + datetime.timedelta(0, show_duration)
+                title = f"{show_start.strftime('%H:%M')} - {title}"
+                image = self.get_media_image_url(epg_entry)
+                result.items.append(
+                    BrowseMediaItem(
+                        media_id=media_id,
+                        title=title,
+                        media_type="channel",
+                        media_class="video",
+                        can_play=True,
+                        can_browse=False,
+                        can_search=True,
+                        thumbnail=image,
+                    )
+                )
+            paging.count = len(epg_channel)
+            return result, paging
+        # pylint: disable=W0718
+        except Exception as ex:
+            _LOGGER.exception(
+                "[%s] Error while browsing media %s,%s : %s",
+                self._device_config.address,
+                media_id,
+                media_type,
+                ex,
+            )
+        return None

@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
+from ucapi.api_definitions import BrowseOptions, BrowseResults
 from ucapi.media_player import (
     Attributes,
     Commands,
@@ -53,6 +54,11 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             Features.CHANNEL_SWITCHER,
             Features.MEDIA_POSITION,
             Features.MEDIA_DURATION,
+            "play_media",
+            # "clear_playlist",
+            "browse_media",
+            # "search_media", # TODO to implement when ready
+            # "search_media_classes", # TODO to implement when ready
         ]
         # pylint: disable=R0801
         attributes = {
@@ -164,6 +170,24 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             res = await self._device.press_key("8")
         elif cmd_id == Commands.DIGIT_9:
             res = await self._device.press_key("9")
+        elif cmd_id == Commands.PLAY_MEDIA:
+            res = await self._device.set_channel_by_name(params.get("media_id"))
         else:
             return StatusCodes.NOT_IMPLEMENTED
         return res
+
+    async def browse(self, options: BrowseOptions) -> BrowseResults | StatusCodes:
+        """
+        Execute entity browsing request.
+
+        Returns NOT_IMPLEMENTED if no handler is installed.
+
+        :param options: browsing parameters
+        :return: browsing response or status code if any error occurs
+        """
+        _LOG.debug("[%s] Browse media request %s", self._device.device_config.address, options)
+        browse_media_item, paging = await self._device.browse_media(
+            options.media_id, options.media_type, options.paging
+        )
+        _LOG.debug("[%s] Browse media resukts %s", self._device.device_config.address, browse_media_item)
+        return BrowseResults(media=browse_media_item, pagination=paging)

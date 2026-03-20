@@ -42,6 +42,19 @@ OPERATION_INFORMATION = "10"
 OPERATION_CHANNEL_CHANGE = "09"
 OPERATION_KEYPRESS = "01"
 
+EPG_GENRES = [
+    "Autre",
+    "Divertissement",
+    "Documentaire",
+    "Film",
+    "Jeunesse",
+    "Info-Mété",
+    "Magazine",
+    "Musique",
+    "Série",
+    "Sport",
+]
+
 KEYS = {
     "POWER": 116,
     "0": 512,
