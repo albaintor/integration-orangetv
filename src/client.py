@@ -987,35 +987,38 @@ class OrangeTVClient:
             else:
                 paging = Pagination(page=paging.page, limit=paging.limit, count=0)
 
+            # if media_id == "" or media_id is None:
+            #     result = BrowseMediaItem(
+            #         media_id="",
+            #         title="Orange TV",
+            #         media_class="video",
+            #         media_type="video",
+            #         can_browse=True,
+            #         can_search=True,
+            #         items=[
+            #             BrowseMediaItem(
+            #                 media_id="orange://channels",
+            #                 title="Chaines",
+            #                 media_class="channels",
+            #                 media_type="channels",
+            #                 can_browse=True,
+            #                 can_search=True,
+            #             ),
+            #             BrowseMediaItem(
+            #                 media_id="orange://genres",
+            #                 title="Genres",
+            #                 media_class="genre",
+            #                 media_type="genre",
+            #                 can_browse=True,
+            #                 can_search=True,
+            #             ),
+            #         ],
+            #     )
+            #     paging.count = len(result.items)
+            #     return result, paging
+
             if media_id == "" or media_id is None:
-                result = BrowseMediaItem(
-                    media_id="",
-                    title="Orange TV",
-                    media_class="video",
-                    media_type="video",
-                    can_browse=True,
-                    can_search=True,
-                    items=[
-                        BrowseMediaItem(
-                            media_id="orange://channels",
-                            title="Chaines",
-                            media_class="channels",
-                            media_type="channels",
-                            can_browse=True,
-                            can_search=True,
-                        ),
-                        BrowseMediaItem(
-                            media_id="orange://genres",
-                            title="Genres",
-                            media_class="genre",
-                            media_type="genre",
-                            can_browse=True,
-                            can_search=True,
-                        ),
-                    ],
-                )
-                paging.count = len(result.items)
-                return result, paging
+                media_id = "orange://channels"
 
             if media_id == "orange://genres":
                 limit = paging.limit
@@ -1075,18 +1078,26 @@ class OrangeTVClient:
                     can_search=True,
                     items=[],
                 )
-                # if paging.page == 1:
-                #     paging["limit"] -= 1
-                #     result.items.append(
-                #         BrowseMediaItem(
-                #             media_id="",
-                #             title="..",
-                #             media_class="video",
-                #             media_type="video",
-                #             can_browse=True,
-                #             can_search=True,
-                #         )
-                #     )
+                if paging.page == 1:
+                    paging["limit"] -= 1
+                    result.items.append(BrowseMediaItem(
+                            media_id="orange://genres",
+                            title="Genres",
+                            media_class="genre",
+                            media_type="genre",
+                            can_browse=True,
+                            can_search=True,
+                        ),)
+                    # result.items.append(
+                    #     BrowseMediaItem(
+                    #         media_id="",
+                    #         title="..",
+                    #         media_class="video",
+                    #         media_type="video",
+                    #         can_browse=True,
+                    #         can_search=True,
+                    #     )
+                    # )
                 result.items.extend(self.get_filtered_entries(self._epg_data, paging))
                 paging.count = len(self._epg_data.keys())
                 if paging.page == 1:
