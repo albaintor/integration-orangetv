@@ -6,10 +6,10 @@ Media-player entity functions.
 """
 
 import logging
-from dataclasses import asdict
 from typing import Any
 
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
+from ucapi.api_definitions import BrowseOptions, BrowseResults
 from ucapi.media_player import (
     Attributes,
     Commands,
@@ -170,21 +170,24 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             res = await self._device.press_key("8")
         elif cmd_id == Commands.DIGIT_9:
             res = await self._device.press_key("9")
-        elif cmd_id == "play_media":  # TODO to be updated when UCAPI
+        elif cmd_id == Commands.PLAY_MEDIA:
             res = await self._device.set_channel_by_name(params.get("media_id"))
         else:
             return StatusCodes.NOT_IMPLEMENTED
         return res
 
-    # pylint: disable=W0613
-    async def browse_media(
-        self,
-        params: dict[str, Any],
-        *,
-        websocket: Any,
-    ) -> dict[str, Any] | StatusCodes:
-        """Browse media command."""
-        (browse_media_item, paging) = await self._device.browse_media(
-            params.get("media_id", None), params.get("media_type", None), params.get("paging", None)
+    async def browse(self, options: BrowseOptions) -> BrowseResults | StatusCodes:
+        """
+        Execute entity browsing request.
+
+        Returns NOT_IMPLEMENTED if no handler is installed.
+
+        :param options: browsing parameters
+        :return: browsing response or status code if any error occurs
+        """
+        _LOG.debug("[%s] Browse media request %s", self._device.device_config.address, options)
+        browse_media_item, paging = await self._device.browse_media(
+            options.media_id, options.media_type, options.paging
         )
-        return {"media": asdict(browse_media_item), "pagination": paging}
+        _LOG.debug("[%s] Browse media resukts %s", self._device.device_config.address, browse_media_item)
+        return BrowseResults(media=browse_media_item, pagination=paging)
