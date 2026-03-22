@@ -34,7 +34,7 @@ from aiohttp.web_exceptions import HTTPRequestTimeout
 from dateutil import tz
 from fuzzywuzzy import process
 from pyee.asyncio import AsyncIOEventEmitter
-from ucapi.api_definitions import BrowseMediaItem
+from ucapi.api_definitions import BrowseMediaItem, MediaClass
 from ucapi.api_definitions import MediaContentType as MediaType
 from ucapi.api_definitions import Pagination, PagingOptions
 from ucapi.media_player import Attributes, States
@@ -940,8 +940,8 @@ class OrangeTVClient:
                 BrowseMediaItem(
                     media_id=media_id,
                     title=title,
-                    media_type="channel",
-                    media_class="video",
+                    media_type=MediaType.VIDEO,
+                    media_class=MediaClass.VIDEO,
                     can_browse=True,
                     can_search=True,
                     thumbnail=image,
@@ -1028,8 +1028,8 @@ class OrangeTVClient:
                 result = BrowseMediaItem(
                     media_id="orange://genres",
                     title="Genres",
-                    media_class="genre",
-                    media_type="genre",
+                    media_class=MediaClass.GENRE.value,
+                    media_type=MediaType.GENRE.value,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1057,8 +1057,8 @@ class OrangeTVClient:
                         BrowseMediaItem(
                             media_id=genre,
                             title=genre,
-                            media_class="genre",
-                            media_type="genre",
+                            media_class=MediaClass.GENRE.value,
+                            media_type=MediaType.GENRE.value,
                             can_browse=True,
                             can_search=True,
                         )
@@ -1072,8 +1072,8 @@ class OrangeTVClient:
                 result = BrowseMediaItem(
                     media_id="orange://channels",
                     title="Programme TV",
-                    media_class="channels",
-                    media_type="video",
+                    media_class=MediaClass.VIDEO.value,
+                    media_type=MediaType.VIDEO.value,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1112,8 +1112,8 @@ class OrangeTVClient:
                 result = BrowseMediaItem(
                     media_id=media_id,
                     title=genre,
-                    media_class="genre",
-                    media_type="genre",
+                    media_class=MediaClass.VIDEO.value,
+                    media_type=MediaType.GENRE.value,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1170,8 +1170,8 @@ class OrangeTVClient:
             result = BrowseMediaItem(
                 media_id=channel_id,
                 title=channel.get("name"),
-                media_type="channel",
-                media_class="video",
+                media_type=MediaType.CHANNEL.value,
+                media_class=MediaClass.VIDEO.value,
                 can_browse=True,
                 can_search=True,
                 items=[],
@@ -1201,8 +1201,8 @@ class OrangeTVClient:
                     BrowseMediaItem(
                         media_id=media_id,
                         title=title,
-                        media_type="channel",
-                        media_class="video",
+                        media_type=MediaType.CHANNEL.value,
+                        media_class=MediaClass.VIDEO.value,
                         can_play=True,
                         can_browse=False,
                         can_search=True,
