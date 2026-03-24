@@ -931,7 +931,10 @@ class OrangeTVClient:
             channel = channel.get("name", "") if channel else epg_entry.get("channelId", "")
 
             title = f"{channel if channel else ''} - {epg_entry.get('title', '')}"
+            subtitle = epg_entry.get("synopsis", "")
             image = self.get_media_image_url(epg_entry)
+            if image:
+                image = image.replace("https://", "http://")
             if parent_path is None:
                 media_id = epg_entry.get("channelId", "0")
             else:
@@ -940,6 +943,7 @@ class OrangeTVClient:
                 BrowseMediaItem(
                     media_id=media_id,
                     title=title,
+                    subtitle=subtitle,
                     media_type=MediaType.VIDEO,
                     media_class=MediaClass.VIDEO,
                     can_browse=True,
@@ -1072,8 +1076,8 @@ class OrangeTVClient:
                 result = BrowseMediaItem(
                     media_id="orange://channels",
                     title="Programme TV",
-                    media_class=MediaClass.VIDEO.value,
-                    media_type=MediaType.VIDEO.value,
+                    media_class=MediaClass.CHANNEL.value,
+                    media_type=MediaType.CHANNELS.value,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1112,7 +1116,7 @@ class OrangeTVClient:
                 result = BrowseMediaItem(
                     media_id=media_id,
                     title=genre,
-                    media_class=MediaClass.VIDEO.value,
+                    media_class=MediaClass.CHANNEL.value,
                     media_type=MediaType.GENRE.value,
                     can_browse=True,
                     can_search=True,
@@ -1171,7 +1175,7 @@ class OrangeTVClient:
                 media_id=channel_id,
                 title=channel.get("name"),
                 media_type=MediaType.CHANNEL.value,
-                media_class=MediaClass.VIDEO.value,
+                media_class=MediaClass.CHANNEL.value,
                 can_browse=True,
                 can_search=True,
                 items=[],
@@ -1192,21 +1196,27 @@ class OrangeTVClient:
             for epg_entry in epg_channel:
                 title = epg_entry.get("title", "")
                 show_start_dt = epg_entry["diffusionDate"]
-                # show_duration = epg_entry["duration"]
+                show_duration = epg_entry["duration"]
                 show_start = datetime.datetime.fromtimestamp(show_start_dt, self._timezone)
                 # show_end = show_start + datetime.timedelta(0, show_duration)
+                # position = show_end.timestamp() - show_start.timestamp()
                 title = f"{show_start.strftime('%H:%M')} - {title}"
+                subtitle = epg_entry.get("synopsis", "")
                 image = self.get_media_image_url(epg_entry)
+                if image:
+                    image = image.replace("https://", "http://")
                 result.items.append(
                     BrowseMediaItem(
                         media_id=media_id,
                         title=title,
+                        subtitle=subtitle,
                         media_type=MediaType.CHANNEL.value,
-                        media_class=MediaClass.VIDEO.value,
+                        media_class=MediaClass.CHANNEL.value,
                         can_play=True,
                         can_browse=False,
                         can_search=True,
                         thumbnail=image,
+                        duration=show_duration
                     )
                 )
             paging.count = len(epg_channel)
