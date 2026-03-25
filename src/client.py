@@ -335,11 +335,9 @@ class OrangeTVClient:
                 buffer = BytesIO()
                 image.save(buffer, format="JPEG")
                 buffer.seek(0)
-                return "data:image/jpeg;base64,"+base64.b64encode(buffer.read()).decode("utf-8")
+                return "data:image/jpeg;base64," + base64.b64encode(buffer.read()).decode("utf-8")
             except Exception as ex:  # pylint: disable=W0718
-                _LOGGER.warning(
-                    "[%s] Error downloading media image %s", self._device_config.address, ex
-                )
+                _LOGGER.warning("[%s] Error downloading media image %s", self._device_config.address, ex)
         return None
 
     async def update(self):
@@ -1108,14 +1106,16 @@ class OrangeTVClient:
                 )
                 if paging.page == 1:
                     paging.limit -= 1
-                    result.items.append(BrowseMediaItem(
+                    result.items.append(
+                        BrowseMediaItem(
                             media_id="orange://genres",
                             title="Genres",
                             media_class=MediaClass.GENRE.value,
                             media_type=MediaType.GENRE.value,
                             can_browse=True,
                             can_search=True,
-                        ),)
+                        ),
+                    )
                     # result.items.append(
                     #     BrowseMediaItem(
                     #         media_id="",
@@ -1237,7 +1237,7 @@ class OrangeTVClient:
                         can_browse=False,
                         can_search=True,
                         thumbnail=await self.get_media_image_buffer(epg_entry),
-                        duration=show_duration
+                        duration=show_duration,
                     )
                 )
             paging.count = len(epg_channel)
