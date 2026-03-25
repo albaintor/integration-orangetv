@@ -973,7 +973,7 @@ class OrangeTVClient:
                     media_class=MediaClass.VIDEO,
                     can_browse=True,
                     can_search=True,
-                    thumbnail=await self.get_media_image_buffer(epg_entry),
+                    thumbnail=self.get_media_image_url(epg_entry),
                 )
             )
         return result
@@ -1164,7 +1164,7 @@ class OrangeTVClient:
                         can_play=True,
                         can_browse=False,
                         can_search=True,
-                        thumbnail=await self.get_media_image_buffer(epg_entry),
+                        thumbnail=self.get_media_image_url(epg_entry),
                         duration=show_duration,
                     )
                 )
