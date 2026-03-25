@@ -194,6 +194,9 @@ class OrangeTVClient:
         self._sslcontext = ssl.create_default_context(cafile=certifi.where())
         self._epg_data: dict[str, list[dict[str, Any]]] | None = None
         self._epg_data_timestamp = 0
+        self._ssl_context_no_ssl = ssl.create_default_context()
+        self._ssl_context_no_ssl.check_hostname = False
+        self._ssl_context_no_ssl.verify_mode = ssl.CERT_NONE
 
     def refresh_state(self):
         """Refresh the current media state."""
@@ -325,7 +328,7 @@ class OrangeTVClient:
         if image_url:
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(image_url) as response:
+                    async with session.get(image_url, ssl=self._ssl_context_no_ssl) as response:
                         response.raise_for_status()
                         content = await response.read()
                 image = Image.open(BytesIO(content))
@@ -1013,36 +1016,6 @@ class OrangeTVClient:
             else:
                 paging = Pagination(page=paging.page, limit=paging.limit, count=0)
 
-            # if media_id == "" or media_id is None:
-            #     result = BrowseMediaItem(
-            #         media_id="",
-            #         title="Orange TV",
-            #         media_class="video",
-            #         media_type="video",
-            #         can_browse=True,
-            #         can_search=True,
-            #         items=[
-            #             BrowseMediaItem(
-            #                 media_id="orange://channels",
-            #                 title="Chaines",
-            #                 media_class="channels",
-            #                 media_type="channels",
-            #                 can_browse=True,
-            #                 can_search=True,
-            #             ),
-            #             BrowseMediaItem(
-            #                 media_id="orange://genres",
-            #                 title="Genres",
-            #                 media_class="genre",
-            #                 media_type="genre",
-            #                 can_browse=True,
-            #                 can_search=True,
-            #             ),
-            #         ],
-            #     )
-            #     paging.count = len(result.items)
-            #     return result, paging
-
             if media_id == "" or media_id is None:
                 media_id = "orange://channels"
 
@@ -1060,18 +1033,7 @@ class OrangeTVClient:
                     can_search=True,
                     items=[],
                 )
-                # if paging.page == 1:
-                #     limit -= 1
-                #     result.items.append(
-                #         BrowseMediaItem(
-                #             media_id="",
-                #             title="..",
-                #             media_class="video",
-                #             media_type="video",
-                #             can_browse=True,
-                #             can_search=True,
-                #         )
-                #     )
+
                 for genre in genres:
                     if index < start:
                         index += 1
@@ -1116,16 +1078,7 @@ class OrangeTVClient:
                             can_search=True,
                         ),
                     )
-                    # result.items.append(
-                    #     BrowseMediaItem(
-                    #         media_id="",
-                    #         title="..",
-                    #         media_class="video",
-                    #         media_type="video",
-                    #         can_browse=True,
-                    #         can_search=True,
-                    #     )
-                    # )
+
                 result.items.extend(await self.get_filtered_entries(self._epg_data, paging))
                 paging.count = len(self._epg_data.keys())
                 if paging.page == 1:
@@ -1146,19 +1099,6 @@ class OrangeTVClient:
                     can_search=True,
                     items=[],
                 )
-                # if paging.page == 1:
-                #     paging.limit -= 1
-                #     result.items.append(
-                #         BrowseMediaItem(
-                #             media_id="orange://genres",
-                #             title="..",
-                #             media_class="genre",
-                #             media_type="genre",
-                #             can_browse=True,
-                #             can_search=True,
-                #             items=[],
-                #         )
-                #     )
 
                 epg_channels = self.get_epg_from_genre(self._epg_data, genre)
                 result.items.extend(await self.get_filtered_entries(epg_channels, paging, f"orange://genres/{genre}"))
@@ -1204,18 +1144,6 @@ class OrangeTVClient:
                 can_search=True,
                 items=[],
             )
-            # if paging.page == 1:
-            #     result.items.append(
-            #         BrowseMediaItem(
-            #             media_id=parent_id,
-            #             title="..",
-            #             media_class=parent_type,
-            #             media_type=parent_type,
-            #             can_browse=True,
-            #             can_search=True,
-            #             items=[],
-            #         )
-            #     )
 
             for epg_entry in epg_channel:
                 title = epg_entry.get("title", "")
