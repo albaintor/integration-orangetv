@@ -26,7 +26,6 @@ from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, 
 import aiohttp
 import certifi
 import ucapi.media_player
-from PIL import Image
 from aiohttp import (
     ClientConnectionError,
     ClientOSError,
@@ -36,6 +35,7 @@ from aiohttp import (
 from aiohttp.web_exceptions import HTTPRequestTimeout
 from dateutil import tz
 from fuzzywuzzy import process
+from PIL import Image
 from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.api_definitions import BrowseMediaItem, MediaClass
 from ucapi.api_definitions import MediaContentType as MediaType
