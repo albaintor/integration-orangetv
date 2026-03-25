@@ -4,7 +4,6 @@ Media-player entity functions.
 :copyright: (c) 2025 Albaintor
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
-
 import logging
 from typing import Any
 
@@ -189,5 +188,4 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
         browse_media_item, paging = await self._device.browse_media(
             options.media_id, options.media_type, options.paging
         )
-        _LOG.debug("[%s] Browse media resukts %s", self._device.device_config.address, browse_media_item)
         return BrowseResults(media=browse_media_item, pagination=paging)

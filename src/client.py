@@ -8,6 +8,7 @@ This module implements the Orange TV communication of the Remote Two integration
 """
 
 import asyncio
+import base64
 import calendar
 import datetime
 import json
@@ -19,11 +20,13 @@ from collections import OrderedDict
 from datetime import timedelta
 from enum import StrEnum
 from functools import wraps
+from io import BytesIO
 from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import aiohttp
 import certifi
 import ucapi.media_player
+from PIL import Image
 from aiohttp import (
     ClientConnectionError,
     ClientOSError,
@@ -73,6 +76,7 @@ CONNECTION_RETRIES = 10
 UPDATE_LOCK_TIMEOUT = 10.0
 ERROR_OS_WAIT = 0.5
 EPG_REFRESH = 10 * 60
+THUMBNAIL_SIZE = (300, 300)
 
 
 def debounce(wait):
@@ -313,6 +317,29 @@ class OrangeTVClient:
         if entry.get("imagePath", None) is not None:
             image_path = entry.get("imagePath", None)
             return f"https://tvgo.orange.pl{image_path}"
+        return None
+
+    async def get_media_image_buffer(self, entry: dict[str, Any]) -> str | None:
+        """Get media image buffer."""
+        image_url = self.get_media_image_url(entry)
+        if image_url:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(image_url) as response:
+                        response.raise_for_status()
+                        content = await response.read()
+                image = Image.open(BytesIO(content))
+                if image.mode in ("RGBA", "P"):
+                    image = image.convert("RGB")
+                image.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
+                buffer = BytesIO()
+                image.save(buffer, format="JPEG")
+                buffer.seek(0)
+                return "data:image/jpeg;base64,"+base64.b64encode(buffer.read()).decode("utf-8")
+            except Exception as ex:  # pylint: disable=W0718
+                _LOGGER.warning(
+                    "[%s] Error downloading media image %s", self._device_config.address, ex
+                )
         return None
 
     async def update(self):
@@ -906,7 +933,7 @@ class OrangeTVClient:
             _LOGGER.exception("[%s] EPG response: %s", self._device_config.address, errh, exc_info=True, stacklevel=50)
             return None
 
-    def get_filtered_entries(
+    async def get_filtered_entries(
         self, epg_data: dict[str, list[dict[str, Any]]], paging: Pagination, parent_path: str | None = None
     ) -> list[BrowseMediaItem]:
         """Return filtered entries from pagination."""
@@ -932,9 +959,6 @@ class OrangeTVClient:
 
             title = f"{channel if channel else ''} - {epg_entry.get('title', '')}"
             subtitle = epg_entry.get("synopsis", "")
-            image = self.get_media_image_url(epg_entry)
-            if image:
-                image = image.replace("https://", "http://")
             if parent_path is None:
                 media_id = epg_entry.get("channelId", "0")
             else:
@@ -948,7 +972,7 @@ class OrangeTVClient:
                     media_class=MediaClass.VIDEO,
                     can_browse=True,
                     can_search=True,
-                    thumbnail=image,
+                    thumbnail=await self.get_media_image_buffer(epg_entry),
                 )
             )
         return result
@@ -1076,8 +1100,8 @@ class OrangeTVClient:
                 result = BrowseMediaItem(
                     media_id="orange://channels",
                     title="Programme TV",
-                    media_class=MediaClass.CHANNEL.value,
-                    media_type=MediaType.CHANNELS.value,
+                    media_class=MediaClass.CHANNEL,
+                    media_type=MediaType.CHANNELS,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1087,8 +1111,8 @@ class OrangeTVClient:
                     result.items.append(BrowseMediaItem(
                             media_id="orange://genres",
                             title="Genres",
-                            media_class="genre",
-                            media_type="genre",
+                            media_class=MediaClass.GENRE.value,
+                            media_type=MediaType.GENRE.value,
                             can_browse=True,
                             can_search=True,
                         ),)
@@ -1102,7 +1126,7 @@ class OrangeTVClient:
                     #         can_search=True,
                     #     )
                     # )
-                result.items.extend(self.get_filtered_entries(self._epg_data, paging))
+                result.items.extend(await self.get_filtered_entries(self._epg_data, paging))
                 paging.count = len(self._epg_data.keys())
                 if paging.page == 1:
                     paging.count += 1
@@ -1137,7 +1161,7 @@ class OrangeTVClient:
                 #     )
 
                 epg_channels = self.get_epg_from_genre(self._epg_data, genre)
-                result.items.extend(self.get_filtered_entries(epg_channels, paging, f"orange://genres/{genre}"))
+                result.items.extend(await self.get_filtered_entries(epg_channels, paging, f"orange://genres/{genre}"))
                 paging.count = len(epg_channels.keys())
                 if paging.page == 1:
                     paging.count += 1
@@ -1202,9 +1226,6 @@ class OrangeTVClient:
                 # position = show_end.timestamp() - show_start.timestamp()
                 title = f"{show_start.strftime('%H:%M')} - {title}"
                 subtitle = epg_entry.get("synopsis", "")
-                image = self.get_media_image_url(epg_entry)
-                if image:
-                    image = image.replace("https://", "http://")
                 result.items.append(
                     BrowseMediaItem(
                         media_id=media_id,
@@ -1215,7 +1236,7 @@ class OrangeTVClient:
                         can_play=True,
                         can_browse=False,
                         can_search=True,
-                        thumbnail=image,
+                        thumbnail=await self.get_media_image_buffer(epg_entry),
                         duration=show_duration
                     )
                 )
