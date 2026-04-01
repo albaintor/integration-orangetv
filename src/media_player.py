@@ -8,14 +8,14 @@ Media-player entity functions.
 import logging
 from typing import Any
 
-from ucapi import EntityTypes, MediaPlayer, StatusCodes
-from ucapi.api_definitions import BrowseOptions, BrowseResults
+from ucapi import EntityTypes, MediaPlayer, StatusCodes, Pagination
 from ucapi.media_player import (
     Attributes,
     Commands,
     DeviceClasses,
     Features,
-    MediaType,
+    BrowseOptions, BrowseResults,
+MediaContentType
 )
 
 from client import OrangeTVClient
@@ -70,7 +70,7 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             Attributes.MEDIA_ARTIST: device.channel_episode if device.channel_episode else "",
             Attributes.MEDIA_POSITION: device.show_position,
             Attributes.MEDIA_DURATION: device.show_duration,
-            Attributes.MEDIA_TYPE: device.media_type if device.media_type else MediaType.TVSHOW,
+            Attributes.MEDIA_TYPE: device.media_type if device.media_type else MediaContentType.TV_SHOW,
         }
 
         super().__init__(
@@ -182,6 +182,7 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
 
         Returns NOT_IMPLEMENTED if no handler is installed.
 
+
         :param options: browsing parameters
         :return: browsing response or status code if any error occurs
         """
@@ -189,4 +190,4 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
         browse_media_item, paging = await self._device.browse_media(
             options.media_id, options.media_type, options.paging
         )
-        return BrowseResults(media=browse_media_item, pagination=paging)
+        return BrowseResults(media=browse_media_item, pagination=Pagination(page=paging.page, limit=paging.limit, count=paging.count))

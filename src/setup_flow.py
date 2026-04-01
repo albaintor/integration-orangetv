@@ -419,7 +419,6 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     _LOG.debug("Handle driver setup with discovery")
 
     address = msg.input_values["address"]
-    device = None
     if address:
         _LOG.debug("Starting manual driver setup for %s", address)
         try:
@@ -438,7 +437,6 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
             friendly_name = data["result"]["data"]["friendlyName"]
             dropdown_items.append({"id": address, "label": {"en": f"{friendly_name} [{address}]"}})
             await device.disconnect()
-            device = None
         except Exception as ex:
             _LOG.error("Cannot connect to manually entered address %s: %s", address, ex)
             return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
@@ -545,7 +543,6 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     host = msg.input_values["choice"]
     result = urlparse("//" + host)
     host = result.hostname
-    port = 8080
     if result.port:
         port = result.port
     else:
@@ -656,7 +653,6 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
         return SetupError()
 
     address = msg.input_values.get("address", "")
-    port = 8080
     try:
         port = int(msg.input_values.get("port", 8080))
     except ValueError:

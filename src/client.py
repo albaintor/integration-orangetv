@@ -17,6 +17,7 @@ import ssl
 import time
 from asyncio import CancelledError, Lock, Task
 from collections import OrderedDict
+from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum
 from functools import wraps
@@ -37,10 +38,8 @@ from dateutil import tz
 from fuzzywuzzy import process
 from PIL import Image
 from pyee.asyncio import AsyncIOEventEmitter
-from ucapi.api_definitions import BrowseMediaItem, MediaClass
-from ucapi.api_definitions import MediaContentType as MediaType
-from ucapi.api_definitions import Pagination, PagingOptions
-from ucapi.media_player import Attributes, States
+from ucapi.api_definitions import Pagination
+from ucapi.media_player import Attributes, States, MediaContentType, Paging, BrowseMediaItem, MediaClass
 from ucapi.select import Attributes as SelectAttributes
 from ucapi.select import States as SelectStates
 
@@ -57,6 +56,24 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
 _LOGGER = logging.getLogger(__name__)
 
 # pylint: disable=C0302,W1405
+
+@dataclass
+class Pagination:
+    """
+    Pagination metadata returned by the client.
+
+    Attributes:
+        page (int):
+            Current page number, 1-based. Must correspond to the requested page.
+        limit (int):
+            Number of items returned in this page.
+        count (int|None):
+            Optional if known: Total number of available items across all pages.
+    """
+
+    page: int
+    limit: int
+    count: int | None = None
 
 
 class Events(StrEnum):
@@ -440,7 +457,7 @@ class OrangeTVClient:
                                 entry = self._find_epg_entry(epg_data[self._channel_id], False)
 
                                 if entry["programType"] == "EPISODE":
-                                    self._media_type = MediaType.VIDEO
+                                    self._media_type = MediaContentType.VIDEO
                                     self._show_series_title = entry["title"]
                                     self._show_season = entry["season"]["number"]
                                     if entry.get("episodeNumber", None):
@@ -449,7 +466,7 @@ class OrangeTVClient:
                                         self._show_episode = 0
                                     self._show_title = entry["season"]["serie"]["title"]
                                 else:
-                                    self._media_type = MediaType.TV_SHOW
+                                    self._media_type = MediaContentType.TV_SHOW
                                     self._show_title = entry["title"]
 
                                 self._show_definition = entry["definition"]
@@ -477,12 +494,12 @@ class OrangeTVClient:
                                                 )
 
                                                 if sch.get("isSeries", False):
-                                                    self._media_type = MediaType.VIDEO
+                                                    self._media_type = MediaContentType.VIDEO
                                                     self._show_series_title = sch.get("name", None)
                                                     self._show_episode = sch.get("episodeNumber", None)
                                                     # self._show_title = sch.get("name", None)
                                                 else:
-                                                    self._media_type = MediaType.TV_SHOW
+                                                    self._media_type = MediaContentType.TV_SHOW
                                                     self._show_title = sch.get("name", None)
                                                 image = self.get_media_image_url(sch)
                                                 if image:
@@ -529,7 +546,7 @@ class OrangeTVClient:
                 # Unknow or no channel displayed. Should be HOMEPAGE, NETFLIX, WHATEVER...
                 self._channel_id = -1
                 self._last_channel_id = self._channel_id
-                self._media_type = MediaType.TV_SHOW
+                self._media_type = MediaContentType.TV_SHOW
                 if self._osd_context:
                     self._channel_name = self._osd_context.upper()
                 self._show_title = None
@@ -553,7 +570,7 @@ class OrangeTVClient:
                             Attributes.MEDIA_ARTIST: "",
                             Attributes.MEDIA_POSITION: 0,
                             Attributes.MEDIA_DURATION: 0,
-                            Attributes.MEDIA_TYPE: MediaType.TV_SHOW,
+                            Attributes.MEDIA_TYPE: MediaContentType.TV_SHOW,
                             Attributes.STATE: self.state,
                             OrangeSensors.SENSOR_CHANNEL: "",
                             OrangeSensors.SENSOR_MEDIA_TITLE: "",
@@ -969,7 +986,7 @@ class OrangeTVClient:
                     media_id=media_id,
                     title=title,
                     subtitle=subtitle,
-                    media_type=MediaType.VIDEO,
+                    media_type=MediaContentType.VIDEO,
                     media_class=MediaClass.VIDEO,
                     can_browse=True,
                     can_search=True,
@@ -1002,7 +1019,7 @@ class OrangeTVClient:
 
     # pylint: disable=R0911
     async def browse_media(
-        self, media_id: str | None, media_type: str | None, paging: PagingOptions | None
+        self, media_id: str | None, media_type: str | None, paging: Paging | None
     ) -> tuple[BrowseMediaItem, Pagination] | None:
         """Browse media."""
         # pylint: disable=R0914
@@ -1028,7 +1045,7 @@ class OrangeTVClient:
                     media_id="orange://genres",
                     title="Genres",
                     media_class=MediaClass.GENRE.value,
-                    media_type=MediaType.GENRE.value,
+                    media_type=MediaContentType.GENRE.value,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1046,7 +1063,7 @@ class OrangeTVClient:
                             media_id=genre,
                             title=genre,
                             media_class=MediaClass.GENRE.value,
-                            media_type=MediaType.GENRE.value,
+                            media_type=MediaContentType.GENRE.value,
                             can_browse=True,
                             can_search=True,
                         )
@@ -1061,7 +1078,7 @@ class OrangeTVClient:
                     media_id="orange://channels",
                     title="Programme TV",
                     media_class=MediaClass.CHANNEL,
-                    media_type=MediaType.CHANNELS,
+                    media_type=MediaContentType.CHANNELS,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1073,7 +1090,7 @@ class OrangeTVClient:
                             media_id="orange://genres",
                             title="Genres",
                             media_class=MediaClass.GENRE.value,
-                            media_type=MediaType.GENRE.value,
+                            media_type=MediaContentType.GENRE.value,
                             can_browse=True,
                             can_search=True,
                         ),
@@ -1094,7 +1111,7 @@ class OrangeTVClient:
                     media_id=media_id,
                     title=genre,
                     media_class=MediaClass.CHANNEL.value,
-                    media_type=MediaType.GENRE.value,
+                    media_type=MediaContentType.GENRE.value,
                     can_browse=True,
                     can_search=True,
                     items=[],
@@ -1138,7 +1155,7 @@ class OrangeTVClient:
             result = BrowseMediaItem(
                 media_id=channel_id,
                 title=channel.get("name"),
-                media_type=MediaType.CHANNEL.value,
+                media_type=MediaContentType.CHANNEL.value,
                 media_class=MediaClass.CHANNEL.value,
                 can_browse=True,
                 can_search=True,
@@ -1159,7 +1176,7 @@ class OrangeTVClient:
                         media_id=media_id,
                         title=title,
                         subtitle=subtitle,
-                        media_type=MediaType.CHANNEL.value,
+                        media_type=MediaContentType.CHANNEL.value,
                         media_class=MediaClass.CHANNEL.value,
                         can_play=True,
                         can_browse=False,
