@@ -976,7 +976,7 @@ class OrangeTVClient:
             channel = channel.get("name", "") if channel else epg_entry.get("channelId", "")
 
             title = f"{channel if channel else ''} - {epg_entry.get('title', '')}"
-            subtitle = epg_entry.get("synopsis", "")
+            subtitle = epg_entry.get("synopsis", "")[:255]
             if parent_path is None:
                 media_id = epg_entry.get("channelId", "0")
             else:
@@ -1170,7 +1170,7 @@ class OrangeTVClient:
                 # show_end = show_start + datetime.timedelta(0, show_duration)
                 # position = show_end.timestamp() - show_start.timestamp()
                 title = f"{show_start.strftime('%H:%M')} - {title}"
-                subtitle = epg_entry.get("synopsis", "")
+                subtitle = epg_entry.get("synopsis", "")[:255]
                 result.items.append(
                     BrowseMediaItem(
                         media_id=media_id,
