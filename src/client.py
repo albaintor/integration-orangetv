@@ -8,7 +8,6 @@ This module implements the Orange TV communication of the Remote Two integration
 """
 
 import asyncio
-import base64
 import calendar
 import datetime
 import json
@@ -21,7 +20,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum
 from functools import wraps
-from io import BytesIO
 from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import aiohttp
@@ -35,8 +33,7 @@ from aiohttp import (
 )
 from aiohttp.web_exceptions import HTTPRequestTimeout
 from dateutil import tz
-from fuzzywuzzy import process
-from PIL import Image
+from Levenshtein import ratio
 from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.api_definitions import Pagination
 from ucapi.media_player import Attributes, States, MediaContentType, Paging, BrowseMediaItem, MediaClass
@@ -54,6 +51,7 @@ from const import (  # EPG_URL,; EPG_USER_AGENT,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
 
 # pylint: disable=C0302,W1405
 
@@ -96,6 +94,20 @@ EPG_REFRESH = 10 * 60
 THUMBNAIL_SIZE = (300, 300)
 
 
+def extract_one(query, choices):
+    """Extract the best match in the list."""
+    best = None
+    best_score = -1
+
+    for choice in choices:
+        score = ratio(query, choice)
+        if score > best_score:
+            best = choice
+            best_score = score
+
+    return best
+
+
 def debounce(wait):
     """Debounce function."""
 
@@ -122,7 +134,7 @@ def debounce(wait):
 
 
 def cmd_wrapper(
-    func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
+        func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
 ) -> Callable[Concatenate[_OrangeDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | None]]:
     """Catch command exceptions."""
 
@@ -339,26 +351,26 @@ class OrangeTVClient:
             return f"https://tvgo.orange.pl{image_path}"
         return None
 
-    async def get_media_image_buffer(self, entry: dict[str, Any]) -> str | None:
-        """Get media image buffer."""
-        image_url = self.get_media_image_url(entry)
-        if image_url:
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(image_url, ssl=self._ssl_context_no_ssl) as response:
-                        response.raise_for_status()
-                        content = await response.read()
-                image = Image.open(BytesIO(content))
-                if image.mode in ("RGBA", "P"):
-                    image = image.convert("RGB")
-                image.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
-                buffer = BytesIO()
-                image.save(buffer, format="JPEG")
-                buffer.seek(0)
-                return "data:image/jpeg;base64," + base64.b64encode(buffer.read()).decode("utf-8")
-            except Exception as ex:  # pylint: disable=W0718
-                _LOGGER.warning("[%s] Error downloading media image %s", self._device_config.address, ex)
-        return None
+    # async def get_media_image_buffer(self, entry: dict[str, Any]) -> str | None:
+    #     """Get media image buffer."""
+    #     image_url = self.get_media_image_url(entry)
+    #     if image_url:
+    #         try:
+    #             async with aiohttp.ClientSession() as session:
+    #                 async with session.get(image_url, ssl=self._ssl_context_no_ssl) as response:
+    #                     response.raise_for_status()
+    #                     content = await response.read()
+    #             image = Image.open(BytesIO(content))
+    #             if image.mode in ("RGBA", "P"):
+    #                 image = image.convert("RGB")
+    #             image.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
+    #             buffer = BytesIO()
+    #             image.save(buffer, format="JPEG")
+    #             buffer.seek(0)
+    #             return "data:image/jpeg;base64," + base64.b64encode(buffer.read()).decode("utf-8")
+    #         except Exception as ex:  # pylint: disable=W0718
+    #             _LOGGER.warning("[%s] Error downloading media image %s", self._device_config.address, ex)
+    #     return None
 
     async def update(self):
         """Update method to refresh data."""
@@ -484,9 +496,9 @@ class OrangeTVClient:
                                         for sch in schedules:
                                             d = datetime.datetime.now(datetime.UTC)
                                             if (
-                                                sch.get("startDate", None)
-                                                <= calendar.timegm(d.utctimetuple())
-                                                <= sch.get("endDate", None)
+                                                    sch.get("startDate", None)
+                                                    <= calendar.timegm(d.utctimetuple())
+                                                    <= sch.get("endDate", None)
                                             ):
                                                 self._show_start_dt = sch.get("startDate", None)
                                                 self._show_duration = sch.get("endDate", None) - sch.get(
@@ -862,7 +874,7 @@ class OrangeTVClient:
                 if chan["name"].lower() == channel.lower():
                     return chan
         # Try fuzzy matching it that did not give any result
-        chan = process.extractOne(channel, self.channels)[0]
+        chan = extract_one(channel, self.channels)[0]
         return chan
 
     def get_channel_id_from_name(self, channel):
@@ -952,7 +964,7 @@ class OrangeTVClient:
             return None
 
     async def get_filtered_entries(
-        self, epg_data: dict[str, list[dict[str, Any]]], paging: Pagination, parent_path: str | None = None
+            self, epg_data: dict[str, list[dict[str, Any]]], paging: Pagination, parent_path: str | None = None
     ) -> list[BrowseMediaItem]:
         """Return filtered entries from pagination."""
         limit = paging.limit
@@ -1005,7 +1017,7 @@ class OrangeTVClient:
         return genres
 
     def get_epg_from_genre(
-        self, epg_data: dict[str, list[dict[str, Any]]], genre: str
+            self, epg_data: dict[str, list[dict[str, Any]]], genre: str
     ) -> dict[str, list[dict[str, Any]]]:
         """Return matching epg entries from given genre."""
         results: dict[str, list[dict[str, Any]]] = {}
@@ -1019,7 +1031,7 @@ class OrangeTVClient:
 
     # pylint: disable=R0911
     async def browse_media(
-        self, media_id: str | None, media_type: str | None, paging: Paging | None
+            self, media_id: str | None, media_type: str | None, paging: Paging | None
     ) -> tuple[BrowseMediaItem, Pagination] | None:
         """Browse media."""
         # pylint: disable=R0914
