@@ -55,6 +55,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # pylint: disable=C0302,W1405
 
+
 @dataclass
 class Pagination:
     """
@@ -134,7 +135,7 @@ def debounce(wait):
 
 
 def cmd_wrapper(
-        func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
+    func: Callable[Concatenate[_OrangeDeviceT, _P], Awaitable[dict[str, Any] | None]],
 ) -> Callable[Concatenate[_OrangeDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | None]]:
     """Catch command exceptions."""
 
@@ -504,9 +505,9 @@ class OrangeTVClient:
                                         for sch in schedules:
                                             d = datetime.datetime.now(datetime.UTC)
                                             if (
-                                                    sch.get("startDate", None)
-                                                    <= calendar.timegm(d.utctimetuple())
-                                                    <= sch.get("endDate", None)
+                                                sch.get("startDate", None)
+                                                <= calendar.timegm(d.utctimetuple())
+                                                <= sch.get("endDate", None)
                                             ):
                                                 self._show_start_dt = sch.get("startDate", None)
                                                 self._show_duration = sch.get("endDate", None) - sch.get(
@@ -961,18 +962,20 @@ class OrangeTVClient:
             _LOGGER.debug("[%s] Request EPG channel id %s", self._device_config.address, channel_id)
         try:
             await self.check_session()
-            async with self._session.get(self.epg_url, params=get_params, ssl=self._sslcontext) as r:
+            if self._device_config.log_client:
+                _LOGGER.debug("[%s] EPG URL: %s", self._device_config.address, self.epg_url)
+            async with self._session.get(self.epg_url, params=get_params) as r:
                 results = await r.json()
                 if self._device_config.log_client:
                     _LOGGER.debug("[%s] EPG response: %s", self._device_config.address, results)
                 return results
-        except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError) as errh:
+        except (ServerTimeoutError, HTTPRequestTimeout, ClientConnectionError, ClientOSError, OSError) as errh:
             # _LOGGER.error("EPG response: %s", errh)
             _LOGGER.exception("[%s] EPG response: %s", self._device_config.address, errh, exc_info=True, stacklevel=50)
             return None
 
     async def get_filtered_entries(
-            self, epg_data: dict[str, list[dict[str, Any]]], paging: Pagination, parent_path: str | None = None
+        self, epg_data: dict[str, list[dict[str, Any]]], paging: Pagination, parent_path: str | None = None
     ) -> list[BrowseMediaItem]:
         """Return filtered entries from pagination."""
         limit = paging.limit
@@ -1025,7 +1028,7 @@ class OrangeTVClient:
         return genres
 
     def get_epg_from_genre(
-            self, epg_data: dict[str, list[dict[str, Any]]], genre: str
+        self, epg_data: dict[str, list[dict[str, Any]]], genre: str
     ) -> dict[str, list[dict[str, Any]]]:
         """Return matching epg entries from given genre."""
         results: dict[str, list[dict[str, Any]]] = {}
@@ -1039,7 +1042,7 @@ class OrangeTVClient:
 
     # pylint: disable=R0911
     async def browse_media(
-            self, media_id: str | None, media_type: str | None, paging: Paging | None
+        self, media_id: str | None, media_type: str | None, paging: Paging | None
     ) -> tuple[BrowseMediaItem, Pagination] | None:
         """Browse media."""
         # pylint: disable=R0914
