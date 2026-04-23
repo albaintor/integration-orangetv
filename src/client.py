@@ -250,8 +250,16 @@ class OrangeTVClient:
             self._session = None
         session_timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout, sock_read=self.timeout)
         # connector = aiohttp.TCPConnector(ssl=False)
+        connector = aiohttp.TCPConnector(
+            resolver=aiohttp.ThreadedResolver(),
+            ssl=self._sslcontext,
+        )
         self._session = aiohttp.ClientSession(
-            headers={"User-Agent": self.epg_user_agent}, timeout=session_timeout, raise_for_status=True, trust_env=True
+            headers={"User-Agent": self.epg_user_agent},
+            timeout=session_timeout,
+            raise_for_status=True,
+            trust_env=True,
+            connector=connector,
         )
         self.events.emit(Events.CONNECTED, self.id)
         await self.start_polling()

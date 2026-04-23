@@ -54,9 +54,9 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             Features.CHANNEL_SWITCHER,
             Features.MEDIA_POSITION,
             Features.MEDIA_DURATION,
-            "play_media",
+            Features.PLAY_MEDIA,
             # "clear_playlist",
-            "browse_media",
+            Features.BROWSE_MEDIA,
             # "search_media", # TODO to implement when ready
             # "search_media_classes", # TODO to implement when ready
         ]
@@ -171,7 +171,8 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
         elif cmd_id == Commands.DIGIT_9:
             res = await self._device.press_key("9")
         elif cmd_id == Commands.PLAY_MEDIA:
-            res = await self._device.set_channel_by_name(params.get("media_id"))
+            res = await self._device.set_channel_by_id(params.get("media_id"))
+            # res = await self._device.set_channel_by_name(params.get("media_id"))
         else:
             return StatusCodes.NOT_IMPLEMENTED
         return res
