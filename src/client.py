@@ -1000,6 +1000,8 @@ class OrangeTVClient:
 
             title = f"{channel if channel else ''} - {epg_entry.get('title', '')}"
             subtitle = epg_entry.get("synopsis", "")[:255]
+            if subtitle == "":
+                subtitle = None
             if parent_path is None:
                 media_id = epg_entry.get("channelId", "0")
             else:
