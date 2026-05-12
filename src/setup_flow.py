@@ -372,6 +372,14 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                         },
                     },
                     {
+                        "id": "search_media_summary",
+                        "label": {
+                            "en": "Search media in EPG summaries",
+                            "fr": "Rechercher les médias dans les descriptions de l'EPG",
+                        },
+                        "field": {"checkbox": {"value": _reconfigured_device.search_media_summary}},
+                    },
+                    {
                         "id": "always_on",
                         "label": {
                             "en": "Keep connection alive (faster initialization, but consumes more battery)",
@@ -511,6 +519,14 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                 },
             },
             {
+                "id": "search_media_summary",
+                "label": {
+                    "en": "Search media in EPG summaries",
+                    "fr": "Rechercher les médias dans les descriptions de l'EPG",
+                },
+                "field": {"checkbox": {"value": True}},
+            },
+            {
                 "id": "always_on",
                 "label": {
                     "en": "Keep connection alive (faster initialization, but consumes more battery)",
@@ -553,6 +569,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     country = msg.input_values.get("country", "france")
     always_on = msg.input_values.get("always_on") == "true"
     log_client = msg.input_values.get("log_client") == "true"
+    search_media_summary = msg.input_values.get("search_media_summary") == "true"
     _LOG.debug("Chosen Orange: %s. Trying to connect and retrieve device information...", host)
     try:
         # simple connection check
@@ -595,6 +612,7 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
             always_on=always_on,
             port=port,
             log_client=log_client,
+            search_media_summary=search_media_summary,
         )
     )  # triggers OrangeAVR instance creation
     config.devices.store()
@@ -660,6 +678,7 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
     country = msg.input_values.get("country", "france")
     always_on = msg.input_values.get("always_on") == "true"
     log_client = msg.input_values.get("log_client") == "true"
+    search_media_summary = msg.input_values.get("search_media_summary") == "true"
 
     _LOG.debug("User has changed configuration")
     _reconfigured_device.address = address
@@ -667,6 +686,7 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
     _reconfigured_device.country = country
     _reconfigured_device.always_on = always_on
     _reconfigured_device.log_client = log_client
+    _reconfigured_device.search_media_summary = search_media_summary
 
     config.devices.add_or_update(_reconfigured_device)  # triggers ATV instance update
     await asyncio.sleep(1)

@@ -47,6 +47,7 @@ class OrangeConfigDevice:
     always_on: bool = field(default=False)
     log_client: bool = field(default=False)
     sensor_include_device_name: bool = field(default=True)
+    search_media_summary: bool = field(default=True)
 
     def __post_init__(self):
         """Apply default values on missing fields."""
@@ -138,6 +139,7 @@ class Devices:
                 item.country = device_instance.country
                 item.always_on = device_instance.always_on
                 item.log_client = device_instance.log_client
+                item.search_media_summary = device_instance.search_media_summary
                 return self.store()
         return False
 

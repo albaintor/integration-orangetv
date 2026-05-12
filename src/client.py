@@ -1004,6 +1004,7 @@ class OrangeTVClient:
                 query_lower
                 and query_lower not in channel.lower()
                 and query_lower not in title.lower()
+                and self._device_config.search_media_summary
                 and query_lower not in subtitle.lower()
             ):
                 continue
