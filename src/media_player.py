@@ -14,8 +14,11 @@ from ucapi.media_player import (
     Commands,
     DeviceClasses,
     Features,
-    BrowseOptions, BrowseResults,
-MediaContentType
+    BrowseOptions,
+    BrowseResults,
+    MediaContentType,
+    SearchOptions,
+    SearchResults,
 )
 
 from client import OrangeTVClient
@@ -57,8 +60,8 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             Features.PLAY_MEDIA,
             # "clear_playlist",
             Features.BROWSE_MEDIA,
-            # "search_media", # TODO to implement when ready
-            # "search_media_classes", # TODO to implement when ready
+            Features.SEARCH_MEDIA,
+            Features.SEARCH_MEDIA_CLASSES,
         ]
         # pylint: disable=R0801
         attributes = {
@@ -71,6 +74,7 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
             Attributes.MEDIA_POSITION: device.show_position,
             Attributes.MEDIA_DURATION: device.show_duration,
             Attributes.MEDIA_TYPE: device.media_type if device.media_type else MediaContentType.TV_SHOW,
+            Attributes.SEARCH_MEDIA_CLASSES: [MediaContentType.GENRE.value, MediaContentType.CHANNELS.value],
         }
 
         super().__init__(
@@ -189,6 +193,20 @@ class OrangeMediaPlayer(MediaPlayer, OrangeEntity):
         """
         _LOG.debug("[%s] Browse media request %s", self._device.device_config.address, options)
         browse_media_item, paging = await self._device.browse_media(
-            options.media_id, options.media_type, options.paging
+            query=None, media_id=options.media_id, media_type=options.media_type, paging=options.paging
         )
-        return BrowseResults(media=browse_media_item, pagination=Pagination(page=paging.page, limit=paging.limit, count=paging.count))
+        return BrowseResults(
+            media=browse_media_item, pagination=Pagination(page=paging.page, limit=paging.limit, count=paging.count)
+        )
+
+    async def search(self, options: SearchOptions) -> SearchResults | StatusCodes:
+        """
+        Execute a media search request.
+
+        Returns search results
+
+        :param options: search parameters
+        :return: search response or status code if any error occurs
+        """
+        _LOG.debug("[%s] Search media request %s", self._device.device_config.address, options)
+        return await self._device.search_media(options)
