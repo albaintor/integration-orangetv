@@ -1,6 +1,6 @@
 {
   "driver_id": "orangetv_driver",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "min_core_api": "0.20.0",
   "name": {
     "en": "Orange TV"
@@ -11,7 +11,7 @@
     "de": "Steuere Orange TV mit Remote Two/3.",
     "fr": "Contrôler votre Orange TV avec Remote Two/3."
   },
- "developer": {
+  "developer": {
     "name": "Albaintor",
     "email": "albaintor@github.com",
     "url": "https://github.com/albaintor"
