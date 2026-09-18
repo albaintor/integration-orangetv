@@ -1,4 +1,4 @@
-name: Dispatch tagged release build
+name: Retag and dispatch release
 
 on:
   push:
@@ -7,13 +7,22 @@ on:
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 jobs:
-  dispatch:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch Build & Release on v1.8.0
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Move release tag to current main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "v1.8.0" "1b7fd23e620773d7f9f7d09fbbd7b9d99acbfd88"
+          git push --force origin "v1.8.0"
+      - name: Dispatch Build & Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run build.yml --ref "v1.8.0"
